@@ -10,3 +10,5 @@ The extension has to:
 - allow to list all panes within the same herdr-space (including names and status)
 - list herdr-spaces
 - close a pane
+
+We need to gather information in a way so that the behaviour and the caveats of using those tools the agents had can be learned and we can address this in the extension!
