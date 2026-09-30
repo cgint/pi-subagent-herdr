@@ -14,18 +14,19 @@ Discovery is complete and peer-reviewed by Judith. No TypeScript extension, pack
 
 Evidence was committed in `0b2df33`; pairing memory in `81b1750`. Judith inspected the committed findings and explicitly agreed that the four decisions can be presented. Her important correction is preserved in findings R-2 and caveat 12: the supposed fast-task completion in the real-wrapper experiment was actually startup after an **undelivered** brief. It does not validate fast-task completion. The subsequent prompt-delivered working→done experiment is valid.
 
-## Pending user decisions — none answered yet
+## User decisions — approved in continuation
 
-Present the live-skill patch decision first:
-- **Patch live skill:** patch `--dm-read` parsing now, leave it alone, or patch plus regression test? Recommendation: patch plus regression test. External skill files have NOT been changed. `--dm-read=1` was parser-tested, not live-launch-tested.
-- **Overlap with pi-herdr:** supervisor subset, distinct names (e.g. `subagent_*`), or extend/replace pi-herdr? Co-loading/tool collision remains untested.
-- **Interrupt semantics:** requirement specifies CTRL-D; working-agent experiments show it exits Pi, while Escape aborts a turn and preserves the agent. Recommend Escape for interrupt and pane close for termination; do not silently rewrite the requirement.
-- **Worker runtime:** reuse bash runtime vs port its behavior to TypeScript? No choice authorized yet.
+- **Live skill:** patch plus regression test, then isolated live-launch proof of task receipt. Authorized, not yet performed.
+- **Tool overlap:** distinct `subagent_*` names.
+- **Interrupt:** Escape aborts a turn; pane close terminates the session. This is the user-approved clarification of R-6.
+- **Worker runtime:** reuse the tested bash runtime initially; native TypeScript tools orchestrate it.
+
+The lead remains Firstmate. The user-designated buddy is an equal-level discussion partner; cheap, capable workers handle bounded grunt work. Verify the current buddy pane before interaction; do not own or close it.
 
 ## Next work
 
-1. Obtain and persist user decisions in `docs/findings.md` §6 and update pairing memory.
-2. Prepare Plan 2 (design), with peer review and user agreement before implementation.
+1. Execute the authorized live-skill patch workflow below after inspecting the destination runtime; verify independently and persist the outcome.
+2. `docs/plan_2_design.md` is prepared and reviewed with the current user-designated buddy, who found no remaining approval blockers. Obtain user agreement before extension implementation. Runtime patch remains authorized but unperformed.
 3. Carry delivery proof into the wait condition itself: terminal state plus advanced seq is not enough. Recommended delivery is `herdr agent prompt` after detection, with baseline taken for that agent after startup. Wait for both `idle` and `done`; do not equate blocked/timeout with successful work.
 4. If a live-skill patch is authorized, inspect the destination machine's runtime first, regression-test parsing and perform an isolated live launch proving receipt, then clean up owned panes. Do not assume the candidate fix is already verified end-to-end.
 

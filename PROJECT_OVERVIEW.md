@@ -4,7 +4,7 @@
 Replace the bash-heavy `sub-agent-herdr-supervisor` workflow with a native TypeScript Pi extension for Herdr subagent control. Authoritative requirements R-1 through R-10 are in `REQUIREMENTS.md` (including pane ID in the bottom status line).
 
 ## Current phase
-**Discovery complete; design and implementation not started.** Peer-reviewed research is committed. Four user decisions remain open: live-skill bug patch, pi-herdr overlap, interrupt semantics, and runtime reuse versus port. No implementation approach or tool schema has been approved.
+**Discovery complete; design and implementation not started.** Peer-reviewed research is committed. User approved patch plus regression/live verification, distinct `subagent_*` names, Escape interruption, and initial bash runtime reuse. The patch has not yet been performed. No implementation approach or tool schema has been approved.
 
 ## Read on return
 1. `AGENTS.md` — standing collaboration/memory rules.
@@ -18,4 +18,4 @@ Replace the bash-heavy `sub-agent-herdr-supervisor` workflow with a native TypeS
 - Worker handoffs and `docs/fritz_followup.md`: archival task boundaries.
 
 ## Next step
-Obtain and persist the four user decisions, then write Plan 2 (design) with peer review and user agreement before implementation. Resolve machine-local dependencies before live experiments. Original pane IDs and absolute paths are historical references, not reusable handles.
+Verify the authorized live-skill patch, then write Plan 2 (design) with peer review and user agreement before implementation. Resolve machine-local dependencies before live experiments. Original pane IDs and absolute paths are historical references, not reusable handles.

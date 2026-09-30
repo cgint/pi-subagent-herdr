@@ -6,7 +6,7 @@ The extension has to:
 - R-3) allow to get console content 
 - R-4) allow to wait for a console to 'finish' (--wait) and then return with the last x chars of console
 - R-5) allow to send text with <enter> to another pane
-- R-6) allow to send -interrupt- to another pane (depending on the agent this is handed over as CTRL-D for pi - this is the only supported)
+- R-6) allow to send an interrupt to another pane using Escape for Pi (the only supported agent). CTRL-D exits Pi; it is not a turn interrupt.
 - R-7) allow to list all panes within the same herdr-space (including names and status)
 - R-8) list herdr-spaces
 - R-9) close a pane
