@@ -85,7 +85,11 @@ Stefan's numbers (320 sessions, 101 with commands, 1,947 tool results, 58 typed 
 - **Multi-line `send-text`** behaviour.
 - `protocol_mismatch` (5×) / `server_not_running` (2×) root cause & recovery — no pattern observed.
 
-## 6. Open decisions for the user
+## 6. User decisions
+
+**Approved in the continuation session:** (1) distinct `subagent_*` tool names; (2) Escape for turn interruption, pane close for termination (user-approved clarification of R-6); (3) reuse the bash worker runtime initially; (4) patch the live skill plus regression test and isolated live-launch verification. Design and implementation still require Plan 2, peer review, and user agreement. The live-skill patch is authorized but not yet performed.
+
+### Discovery-era options (historical rationale)
 
 1. **Overlap with pi-herdr.** pi-herdr already ships `herdr_start_agent`, `herdr_send_prompt`, `herdr_read_agent`, `herdr_wait_agent`, `herdr_list_panes`, `herdr_close_pane`, … (five tiers). Decide: (a) build pi-subagent-herdr as a *supervisor-workflow* subset (launch/await/prompt/read/close with our caveats baked in), tolerating coexistence; (b) name tools distinctly (e.g. `subagent_*`); or (c) extend/replace pi-herdr. Tool-name collision behaviour when both load is unknown (open question 1).
 2. **Interrupt key (R-6).** Evidence: `esc` aborts the turn (agent survives); `ctrl+d` kills the session. The requirement's "CTRL-D" was presumably a guess at how Pi interrupts. Recommendation (Judith): `send_interrupt` → `esc`; termination is already covered by pane close (R-9). **Your call: esc, ctrl+d, or both as separate tools.**
