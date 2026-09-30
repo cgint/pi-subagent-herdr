@@ -5,8 +5,8 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 
 ## Key Directives & Workflows
 - **Core Values:** Honest progress over appearance; no workarounds as final state; ground and verify with live tool execution and code inspection.
-- **Firstmate & Supervision Roles:** Horst (lead) coordinates with Judith (`HERDR_PANE_ID=w2V:p2`, coordinator/cross-checker) and delegates bounded tasks to dedicated workers.
-- **Re-entry Routine:** Read `AGENTS.md`, `PROJECT_OVERVIEW.md`, and `REQUIREMENTS.md`.
+- **Firstmate & Supervision Roles:** Horst (lead) coordinated discovery with Judith (original pane `w2V:p2`, historical only) and bounded workers. On another machine establish a fresh peer; never reuse old pane IDs without verification.
+- **Re-entry Routine:** Read `AGENTS.md`, `PROJECT_OVERVIEW.md`, `REQUIREMENTS.md`, `docs/findings.md`, and `docs/HANDOFF.md` before continuing.
 
 ## Durable Pairing Memory & Standing Stewardship Contract
 - **Durable Pairing Memory:** Repository-owned, filesystem-persisted knowledge that enables future sessions to continue without losing intent, constraints, or decisions.
