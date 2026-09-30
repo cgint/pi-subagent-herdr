@@ -21,7 +21,13 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Memory Checkpoint:** Before concluding meaningful work, identify durable findings, update canonical files, prune stale notes, and report updates clearly.
 - **Memory Boundary:** Repository-owned docs (`AGENTS.md`, `PROJECT_OVERVIEW.md`, `docs/`) hold durable knowledge. `agent/` is strictly for agent-internal ephemeral scratch/work artifacts.
 
+## Phase State (updated 2026-09-30)
+- **Discovery complete.** `docs/findings.md` v2.1 (commit `0b2df33`) is signed off by Judith; all evidence committed (worker reports, handoffs, plans). Re-entry: read `REQUIREMENTS.md` (R-1..R-10 verbatim) + `docs/findings.md`.
+- **Awaiting user:** 4 open decisions in `docs/findings.md` §6: (1) pi-herdr overlap, (2) interrupt key (esc vs ctrl+d), (3) reuse vs port bash wrapper, (4) patch live skill `--dm-read` bug. Judith recommends presenting 4 first (urgent, independent).
+- **Settled design constraints (do not re-litigate):** task delivery via `herdr agent prompt` post-detection, never positional payload at launch (pi 0.99.1 `--dm-read` swallows inline briefs in readonly mode — §3.1); terminal-state waits must race `idle`+`done`; any seq-gated wait needs delivery proof (caveat 12); worker launch must load `herdr-agent-state.ts`; R-10 footer via `ctx.ui.setStatus`.
+
 ## Current Risks & Open Loops
-- Herdr CLI version compatibility and JSON output parsing guarantees.
-- Proper process lifecycle management for synchronous vs. async console waiting without blocking Pi's UI/event loop.
-- Exact mapping of Pi's interrupt signal (CTRL-D for Pi sessions) via Herdr's pane interaction primitives.
+- **Live skill bug (urgent, user decision 4):** readonly + `--brief` launches in `pi-worker-runtime.sh` silently lose the task (pi 0.99.1 parses `--dm-read` as unknown flag and swallows the next positional). Fix candidate `--dm-read=1` is parseArgs-verified, not yet launch-tested.
+- Tool-name collision with pi-herdr if both extensions load (unknown until tested).
+- Multi-line `pane send-text` behaviour undetermined (minor, R-5).
+- `--dm-read` parser behaviour is pinned to pi 0.99.1; re-verify on Pi updates.
