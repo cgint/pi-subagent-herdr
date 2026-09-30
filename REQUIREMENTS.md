@@ -7,6 +7,6 @@ The extension has to:
 - allow to wait for a console to 'finish' (--wait) and then return with the last x chars of console
 - allow to send text with <enter> to another pane
 - allow to send -interrupt- to another pane (depending on the agent this is handed over as CTRL-D for pi - this is the only supported)
-- allow to list all panes within the same herdr-space
+- allow to list all panes within the same herdr-space (including names and status)
 - list herdr-spaces
 - close a pane
