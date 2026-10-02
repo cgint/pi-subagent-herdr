@@ -14,7 +14,9 @@ Historical discovery/open-decision labels below are not continuation instruction
 - Actual child stdout proves Herdr/model env reach; genuine SDK session isolation/cancel PID reaping and registered/directCLI parity are recorded. Console tails remain snapshots, not answers. Finish tails and nonterminal-success rejection are repaired/tested.
 - Separate348-call Qwen loop was honestly timed out and Escape-recovered. Fixed20turn batch passes only its functional contract. Multiline rejected; genuine sibling unavailable, co-load not claimed.
 - SDK1.0.0 host-peer packaging validated without bundled host modules. Real residual host brace-expansion DoS risk explicitly reassessed in docs/security.md; no clean audit.
-- Pure installed1.0.0 parseArgs still loses positional BRIEF after --dm-read; installed runtime remains unchanged and extension never passes positional tasks.
+- Pure installed1.0.0 parseArgs still loses positional BRIEF after --dm-read; extension never passes positional tasks. The later authorized extension-loading rollout leaves that parser behavior unchanged.
+- [Observed] Fresh deployed native editableL1→readonlyL2 original tool/hash/cleanup proof: evidence/nested_worker_live.json. Readonly workers load pi-subagent-herdr but their whole --tools allowlist excludes native calls; default start is readonly, so recursive controllers must explicitly be editable.
+- [Peer-reported] Authoritative runtime/source tests/skill docs generated/deployed and normally pushed by the ~/.local/bin Firstmate as ee6810c. He pushed before the agreed live gate; the later independent passing probe supplements, not erases, that sequencing error. Old-process tool availability is unverified, not acceptance evidence.
 - Rejected packaging red was ENOENT/incorrect path assumptions, not Node defect or true TDD. Correct root lookup and genuine later controlled old-manifest assertion failures are preserved. Do not repeat those false claims.
 
 ## 1. Per-requirement table
@@ -97,7 +99,7 @@ Stefan's numbers (320 sessions, 101 with commands, 1,947 tool results, 58 typed 
 
 ## 6. Decisions (current canonical)
 
-**Current state (2026-09-30):** Plan 2 was designed, peer-reviewed (buddy: no approval blockers), and — after the user delegated technical design, implementation and acceptance to the Firstmate — implemented without a human approval gate. The repository-only scope correction (below) superseded the external live-skill patch option; the extension reuses the installed runtime unchanged with no positional task. Acceptance state is tracked in `docs/acceptance.md` per the live acceptance contract (`agent/live-acceptance-contract.md`); source evidence in this file is historical, authoritative requirements stay in `REQUIREMENTS.md`.
+**First-version decision state (2026-09-30):** Plan 2 was designed, peer-reviewed (buddy: no approval blockers), and — after the user delegated technical design, implementation and acceptance to the Firstmate — implemented without a human approval gate. The repository-only scope correction (below) superseded the external live-skill patch option; the extension reuses the installed runtime unchanged with no positional task. Acceptance state is tracked in `docs/acceptance.md` per the live acceptance contract (`agent/live-acceptance-contract.md`); source evidence in this file is historical, authoritative requirements stay in `REQUIREMENTS.md`.
 
 **Approved (user) in the continuation session:** (1) distinct `subagent_*` tool names; (2) Escape for turn interruption, pane close for termination (user-approved clarification of R-6); (3) reuse the bash worker runtime initially.
 
@@ -122,7 +124,7 @@ Stefan's numbers (320 sessions, 101 with commands, 1,947 tool results, 58 typed 
 The user owns requirements and delegates technical design, implementation and acceptance to the Firstmate, supported by equal-level buddy discussion, bounded workers and independent verification. The earlier human Plan 2 approval gate is superseded; do not ask the user to approve architecture. Escalate only actual requirements/scope/authorization blockers.
 
 ## Scope correction — repository-only extension
-User explicitly forbids changes to the installed supervisor skill scripts. External live-skill patch/regression is removed from scope, superseding earlier authorization and plan gates. Reuse the installed worker runtime unchanged with no positional task; deliver through agent prompt after detection. Implement and test all extension changes in this repository.
+Original first-version scope forbade installed supervisor changes and withdrew external readonly parser patch/regression authorization. On 2026-10-02 the user separately authorized authoritative runtime/template always-on pi-subagent-herdr loading, then deployment, commit and push. The ~/.local/bin Firstmate owns that repository's source/tests/skill docs, generator/deploy workflow and Git; coordinate through messages, do not execute commands there. Reported rollout/push and independent minimal-profile nested acceptance are separate evidence. No unrelated external/config/auth changes, force push or publication are authorized. Extension implementation remains here; no positional tasks, prompt only after managed readiness.
 
 ## Live implementation regression gates (2026-09-30)
 

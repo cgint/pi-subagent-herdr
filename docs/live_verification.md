@@ -6,7 +6,7 @@ R-1..R-10 functional gates are verified within the declared v1 limits. Terminal 
 
 - Initial native registration/footer controls: Pi0.99.1, Herdr0.9.3.
 - Resumed native lifecycle/final production/package probes: Pi1.0.0, Herdr0.9.3, Node22.23.3, TypeBox1.3.27.
-- Installed unchanged minimal worker runtime: actual home-llm/qwen3.8-27b-nvfp4-dflash2-direct, distinct from controller model. No installed scripts/configuration or `.sub_agent_conf` modified.
+- Original first-version probes used unchanged installed minimal worker runtime: actual home-llm/qwen3.8-27b-nvfp4-dflash2-direct, distinct from controller model; no installed scripts/configuration or `.sub_agent_conf` modified during those probes. Later authorized runtime loading/deployment is separately evidenced below.
 - 2026-10-02 final strict SDK1.0.0 observation: npm run check,130 passed/0 failed (`agent/final-check.log`). This is a timestamped observation, not a permanent count.
 
 ## Requirement proof
@@ -25,6 +25,18 @@ All evidence paths below are under `docs/evidence/`; original role order and ind
 | R-8 | Same record → spaces: actual registered result/direct comparison with two owned workspaces; secondary workspace independently cleaned. No user workspace mutated. |
 | R-9 | Native owned/repeated close, fresh typed absence, noninteractive external no_ui_available denial with target surviving. Mechanic/original-worker closure and final frozen sole-manager/workspace absence in native_final_gates. |
 | R-10 | footer_controlled.json: same-terminal inside negative/positive bottom-line bytes; footer_outside_pty.json: genuine outside-Herdr interactive no-status control/normal exit. native_editable_blocker.json: independent owned cleanup. Terminal captures, not desktop screenshots. |
+
+## Fresh loaded-session smoke (2026-10-02)
+
+`evidence/current_session_tools_live.json` records all nine actual tools in the user's current `-e`-loaded session, not a direct-core substitute. Hidden-hash readonly and editable results independently match; readonly write attempt denied/no file;65s task returns working after10s with50-code-point tail, busy prompt refused, continuation yields original result. Escape aborts an actual sleeping command; no completion artifact and same Pi handles a new task. Raw-shell text+Enter executes verified hash;200-code-point suffix exactly matches CLI (201 UTF-16 units, includes 🙂). Multiline and unacknowledged raw control rejected. Normal/repeated closure and typed absence of all three created panes verified; original supervisor/buddy panes remain. Raw shell was CLI-created/lead-owned, hence explicit external opt-in only for it. Original role proofs/fixture bytes preserved; own scratch removed. No source/runtime/config changes. Functional smoke, not statistical reliability.
+
+## Authorized deployed nested loading (2026-10-02)
+
+`evidence/nested_worker_live.json` retains fresh native L0→editableL1→readonlyL2 original role messages, hidden 256-byte fixture/base64, actual managed `herdr:pi` identities, native outcomes and independent cleanup. L1 really called registered `subagent_start` with readonly/finish; L2's single original bash SHA256 result matches the independently recomputed oracle absent from its prompt. No CLI launch/delivery/wait fallback: the controller's only CLI call captured agent identity. L1 natively closed its child, L0 natively closed the controller; both independently typed absent. User/buddy and other-repository Firstmate preserved; own fixture directory removed.
+
+The `~/.local/bin` Firstmate reports its proper generator/deploy workflow, 3 source files→34 generated copies, regression passage, commit `ee6810c` and normal `origin/main` push. Those rollout/Git observations are peer-reported, not direct commands against his repository. He pushed before the agreed live gate; this subsequent passing probe supplements acceptance, does not erase that ordering error. Only the fresh minimal-profile nested behavior is independently verified here, not every deployed profile/platform.
+
+Readonly workers load the extension but `--tools read,bash,grep,find,ls` excludes native `subagent_*` calls. Default start remains readonly; recursive controllers require explicit editable mode. Exact-once extension argv is a source regression, not a live `ps` claim: an attempted process-argv assertion failed because the process display was overwritten to `pi`; the rejected inference is retained. An unproven predeployment worker-tool claim is not acceptance evidence. No parser/config/auth/model change or statistical reliability claim.
 
 ## Cross-cutting gates
 
@@ -46,4 +58,4 @@ All evidence paths below are under `docs/evidence/`; original role order and ind
 - Packaging worker's initial red was ENOENT, not manifest failure; unsupported Node-quirk claim retracted. Correct compiled-root URL and later controlled old-manifest mutation produce three genuine assertion failures. This is not original preimplementation TDD; packaging_live preserves correction.
 - Initial direct-env multi-name BSD printenv probe was invalid (only prints first name); portable printf corrected it. No missing-env claim derives from that failed probe.
 
-All owned workers/raw fixtures/managers/scratch workspaces independently absent after inspection. Recorded IDs/absolute paths are historical provenance, never reusable handles. Raw forensic logs remain ignored under agent/; curated evidence is deliverable.
+All verifier-owned test workers/raw fixtures/managers/scratch workspaces independently absent after inspection. Other-repository Firstmates may remain available as peers; preserve them rather than treating tool ownership as cleanup authorization. Recorded IDs/absolute paths are historical provenance, never reusable handles. Raw forensic logs remain ignored under agent/; curated evidence is deliverable.

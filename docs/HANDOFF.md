@@ -2,7 +2,7 @@
 
 ## Re-entry
 
-Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/live_verification.md. Canonical evidence, not old chat/worker summaries, determines verified scope. Recorded pane IDs/absolute paths are historical provenance, never reusable handles. No live owned handles remain.
+Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/live_verification.md. Canonical evidence, not old chat/worker summaries, determines verified scope. Recorded pane IDs/absolute paths are historical provenance, never reusable handles. All test resources were cleaned; an other-repository Firstmate may remain available as a peer. Obtain current identity/role through the session, never treat historical ownership as closure authority over that peer.
 
 ## Current outcome
 
@@ -12,7 +12,7 @@ User owns requirements and delegated technical design/implementation/acceptance 
 
 ## Repository-only scope
 
-Installed supervisor scripts/configuration must not be modified. Earlier external readonly patch/regression authorization was explicitly withdrawn. Reuse runtime unchanged, no positional payload; send task through agent prompt only after managed readiness. Distinct subagent_* names; Escape interrupts, pane close terminates. Never recreate .sub_agent_conf, push or publish without permission.
+Original first-version scope forbade installed supervisor changes and withdrew external readonly parser patch/regression authorization. Later, on 2026-10-02, the user specifically authorized authoritative always-on `pi-subagent-herdr` loading and then deployment, commit and push. The other repository's Firstmate owns its source/test/skill docs, generator/deployment and Git; communicate, do not execute commands against its repository. Reported source rollout/push and independently tested deployed behavior are separate evidence; no unrelated external/config/auth changes or force push/publication are authorized. Reuse runtime, no positional payload; send task only after managed readiness. Distinct subagent_* names; Escape interrupts, close terminates; never recreate .sub_agent_conf.
 
 ## Destination dependencies
 
@@ -32,6 +32,6 @@ Validated resumed environment: Pi1.0.0/Herdr0.9.3/Node22.23.3/TypeBox1.3.27; ini
 
 Do not replay completed gates because historical notes say pending. For changes, run npm run check and relevant fresh owned live probes, require hidden task oracle/original user→tool-result→assistant proof, frozen workspace/terminal identity, confirmed-vs-unknown receipt distinction and newer terminal state. Native calls are separate from L2 direct-core/CLI proof. New/fork owns nothing; original resume restores only identity-verified records. Cancel reaps local CLI, not worker.
 
-All owned resources independently absent after inspection; user/buddy untouched. Raw rejected/diagnostic logs remain ignored in agent/, not shipped. Package smoke extracted outside repo ancestry and removed its own temporary directory. Pairing memory is repository-owned; agent/ is ephemeral.
+All owned test resources independently absent after inspection; user/buddy/other-repository Firstmate preserved. Fresh deployed native L0→editableL1→readonlyL2 proof is in evidence/nested_worker_live.json: original nested native launch/close, managed metadata and hidden computed hash. Readonly workers load the extension but --tools excludes its native calls; recursive controllers must explicitly be editable. This is one minimal-profile functional probe, not all-profile or model-reliability acceptance. Raw rejected/diagnostic logs remain ignored in agent/, not shipped. Package smoke extracted outside repo ancestry and removed its own temporary directory. Pairing memory is repository-owned; agent/ is ephemeral.
 
 Git remote/commit/push are user responsibilities unless explicitly authorized. Review git status before transfer; do not assume untracked implementation/docs are already committed. Historical discovery reports remain provenance, not active instructions.
