@@ -1,0 +1,42 @@
+{
+  "name": "pi-subagent-herdr",
+  "version": "0.1.0",
+  "description": "Native Pi tools for safe Herdr subagent supervision",
+  "type": "module",
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "files": [
+    "src",
+    "README.md",
+    "REQUIREMENTS.md",
+    "docs/security.md",
+    "docs/acceptance.md",
+    "docs/live_verification.md",
+    "docs/evidence"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:test": "tsc -p tsconfig.build.json",
+    "test": "npm run build:test && node --test --test-timeout=10000 .test-build/tests/*.test.js",
+    "check": "npm run typecheck && npm test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@earendil-works/pi-ai": "1.0.0",
+    "@types/node": "^22.0.0",
+    "typebox": "1.3.27",
+    "typescript": "^5.9.0"
+  }
+}

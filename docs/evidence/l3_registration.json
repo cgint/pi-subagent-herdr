@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-09-30T19:48:00Z",
+  "test": "L3 registration smoke — native Pi TUI load, read-only tools, footer",
+  "scratch_workspace": {
+    "workspace_id": "w17",
+    "label": "l3-registration-smoke",
+    "root_pane": "w17:p1",
+    "terminal_id": "term_65cb891ce2f6133",
+    "cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+    "verified_not_lead": true,
+    "lead_workspace": "wP"
+  },
+  "pi_launch": {
+    "command": "pi --provider github-copilot --model gemini-3.6-flash --extension /Users/cgint/dev-external/pi-subagent-herdr/src/index.ts --system-prompt '...'",
+    "pi_version": "0.99.1",
+    "extension_path": "/Users/cgint/dev-external/pi-subagent-herdr/src/index.ts",
+    "model": "gemini-3.6-flash",
+    "provider": "github-copilot",
+    "session_jsonl": "/Users/cgint/.pi/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-09-30T19-47-43-250Z_01a0f3db-cc11-7777-8f0b-23b74565dee2.jsonl"
+  },
+  "tool_calls": {
+    "subagent_list": {
+      "invoked": true,
+      "result": {
+        "ok": true,
+        "outcome": "listed",
+        "phase": "list",
+        "workspace_id": "w17",
+        "panes": [
+          {
+            "pane_id": "w17:p1",
+            "workspace_id": "w17",
+            "terminal_id": "term_65cb891ce2f6133",
+            "agent_status": "working",
+            "owned": false
+          }
+        ],
+        "isError": false
+      },
+      "workspace_matches_scratch": true
+    },
+    "subagent_spaces": {
+      "invoked": true,
+      "result": {
+        "ok": true,
+        "outcome": "listed",
+        "phase": "spaces",
+        "workspaces_count": 8,
+        "scratch_workspace_present": true,
+        "isError": false
+      }
+    }
+  },
+  "footer": {
+    "present": true,
+    "raw_bottom_text": "✅ 🔰 📝 🚗~160m herdr pane w17:p1",
+    "pane_id_shown": "w17:p1",
+    "matches_scratch_root_pane": true,
+    "screenshot": null,
+    "acceptance": "raw text observed; visible-bottom/negative-control/original-byte archival gate remains"
+  },
+  "co_load_pi_herdr": {
+    "tested": false,
+    "reason": "sibling extension path not verified; no extra tools prompt"
+  },
+  "pending_gates": [
+    "subagent_start live (not yet)",
+    "subagent_prompt / wait / read / send / interrupt / close live",
+    "R-5 multi-line send characterization",
+    "R-10 screenshot (raw text captured; visual screenshot not available via pane read)",
+    "co-load pi-herdr probe",
+    "reliability batch (10 fast prompts)"
+  ],
+  "cleanup": {
+    "workspace": "w17",
+    "status": "absence independently verified by Felix via workspace list",
+    "verified_at": "2026-09-30T20:13:30.831939+00:00"
+  },
+  "original_tool_records": "docs/evidence/l3_registration_messages.json"
+}

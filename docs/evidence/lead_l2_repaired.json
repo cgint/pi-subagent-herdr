@@ -1,0 +1,200 @@
+{
+  "status": "FAILED",
+  "reason": "timed out waiting for role-separated completion in session JSONL",
+  "controller_workspace": null,
+  "scratch_workspace": "w1K",
+  "root_pane": {
+    "agent_status": "unknown",
+    "cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+    "focused": false,
+    "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+    "pane_id": "w1K:p1",
+    "revision": 0,
+    "scroll": {
+      "max_offset_from_bottom": 0,
+      "offset_from_bottom": 0,
+      "viewport_rows": 46
+    },
+    "tab_id": "w1K:t1",
+    "terminal_id": "term_65cc066a8970f4f",
+    "workspace_id": "w1K"
+  },
+  "worker_pane": "w1K:p2",
+  "actual_worker_model": null,
+  "refusal": {
+    "outsideId": "w1K:p999",
+    "refused": true
+  },
+  "task": "Use exactly one tool call: run `sha256sum /Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt | awk '{print $1}'`.\nThen reply with exactly two unnumbered lines and no preface:\nFirst line: the exact sha256 hex digest. Second line: READY.",
+  "receipt": {
+    "code": "agent_prompted",
+    "outcome": "submitted",
+    "pane": "w1K:p2"
+  },
+  "start_result": {
+    "ok": true,
+    "outcome": "submitted",
+    "phase": "submission",
+    "pane_id": "w1K:p2",
+    "status": "idle",
+    "seq": 273,
+    "code": "agent_prompted",
+    "hint": "submission receipt (agent_prompted); the turn has not completed",
+    "continuation": "cont_1_5b2277314b3a"
+  },
+  "wait_result": {
+    "ok": true,
+    "outcome": "terminal_observed_after_working",
+    "phase": "wait",
+    "pane_id": "w1K:p2",
+    "status": "done",
+    "seq": 275,
+    "tail": "\n --------------\n\n 7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\n\n\n 7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\n READY.\n\n────────────────────────────────────────────────────────────────────────────────────────────────\n\n────────────────────────────────────────────────────────────────────────────────────────────────\n~/dev-external/pi-subagent-herdr (master)\n↑14k ↓144 2.7%/262k (auto)            (home-llm) qwen3.8-27b-nvfp4-dflash2-direct • thinking off\n📖 🔰 📝",
+    "code": "activity",
+    "hint": "terminal state observed after confirmed delivery and recorded working evidence; verify task-specific output",
+    "continuation": "cont_1_5b2277314b3a"
+  },
+  "read_result": {
+    "ok": true,
+    "outcome": "read",
+    "phase": "read",
+    "pane_id": "w1K:p2",
+    "tail": "────────────────────────────────────────────────────────────────────────────────────────────────\n Update Available\n New version 0.99.2 is available. Run pi update\n Changelog: https://pi.dev/changelog\n────────────────────────────────────────────────────────────────────────────────────────────────\n\n\n Use exactly one tool call: run sha256sum\n /Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt | awk '{print $1}'.\n Then reply with exactly two unnumbered lines and no preface:\n First line: the exact sha256 hex digest. Second line: READY.\n\n\n────────────────────────────────────────────────────────────────────────────────────────────────\n Package Updates Available\n Package updates are available. Run pi update --extensions\n Packages:\n - github.com/nicobailon/pi-web-access\n────────────────────────────────────────────────────────────────────────────────────────────────\n\n\n bash sha256sum /Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt |\n awk '{print $1}'\n\n Bash provenance:\n   Intent: Compute sha256 digest of the fixture file as instructed\n --------------\n\n 7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\n\n\n 7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\n READY.\n\n────────────────────────────────────────────────────────────────────────────────────────────────\n\n────────────────────────────────────────────────────────────────────────────────────────────────\n~/dev-external/pi-subagent-herdr (master)\n↑14k ↓144 2.7%/262k (auto)            (home-llm) qwen3.8-27b-nvfp4-dflash2-direct • thinking off\n📖 🔰 📝"
+  },
+  "close_result_1": null,
+  "close_result_2": null,
+  "cleanup": {
+    "worker_pane_absent": null,
+    "workspace_absent": null
+  },
+  "session_path": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-10-01T05-08-08-312Z_01a0f5dc-dff8-76f7-b18e-bd2410cb4cda.jsonl",
+  "role_segment_hash": null,
+  "original_records": [
+    {
+      "type": "message",
+      "id": "9df1b5a4",
+      "parentId": "53825d25",
+      "timestamp": "2026-10-01T05:08:10.475Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Use exactly one tool call: run `sha256sum /Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt | awk '{print $1}'`.\nThen reply with exactly two unnumbered lines and no preface:\nFirst line: the exact sha256 hex digest. Second line: READY."
+          }
+        ],
+        "timestamp": 1790831290473
+      }
+    },
+    {
+      "type": "message",
+      "id": "b73360ce",
+      "parentId": "9df1b5a4",
+      "timestamp": "2026-10-01T05:08:11.679Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_1ae42b376afc4d2f86ddffb5",
+            "name": "bash",
+            "arguments": {
+              "command": "sha256sum /Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt | awk '{print $1}'",
+              "intent": "Compute sha256 digest of the fixture file as instructed"
+            }
+          }
+        ],
+        "api": "openai-completions",
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+        "usage": {
+          "input": 6745,
+          "output": 82,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 6827,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1790831290480,
+        "responseId": "6c80fc1b42b74e34914673494377a699",
+        "rawStopReason": "tool_calls",
+        "thinkingLevel": "off"
+      }
+    },
+    {
+      "type": "message",
+      "id": "6ceedf59",
+      "parentId": "b73360ce",
+      "timestamp": "2026-10-01T05:08:11.690Z",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "call_1ae42b376afc4d2f86ddffb5",
+        "toolName": "bash",
+        "content": [
+          {
+            "type": "text",
+            "text": "7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\n"
+          }
+        ],
+        "isError": false,
+        "timestamp": 1790831291690
+      }
+    },
+    {
+      "type": "message",
+      "id": "9dbd771b",
+      "parentId": "6ceedf59",
+      "timestamp": "2026-10-01T05:08:11.985Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9\nREADY."
+          }
+        ],
+        "api": "openai-completions",
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+        "usage": {
+          "input": 6902,
+          "output": 62,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 6964,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1790831291691,
+        "responseId": "22a097cfbd9d4e05ba67f7de87647d83",
+        "rawStopReason": "stop",
+        "thinkingLevel": "off"
+      }
+    }
+  ],
+  "selected_records": null,
+  "source_sha256": "c48d9316aa2e43e5d0a85d4e8c7570a7a4d6ec1da9e0973b5b1478e15dcb7200",
+  "fixture_path": "/Users/cgint/dev-external/pi-subagent-herdr/agent/martin-owned-fixture.txt",
+  "fixture_value_hash": "7ff080d751830a5a06c09b423022b5d93b54f9c5d896b1abdc0002cde033bef9",
+  "lead_review": {
+    "accepted_scope": "genuine exact-byte digest execution plus delivered continuation waited through sampled working to done and returned digest-containing console tail",
+    "probe_failure": "prompt said Second line: READY. and model emitted literal READY.; exact reply oracle did not match. Failed probe status retained.",
+    "pending": "normal+idempotent close full successful replay; registered tools/reliability/footer controls",
+    "cleanup": "owned scratch w1K independently absent from workspace list"
+  }
+}

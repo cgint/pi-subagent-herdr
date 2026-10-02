@@ -1,0 +1,534 @@
+{
+  "timestamp": "2026-10-02T19:48:43.225807",
+  "manifest": {
+    "name": "pi-subagent-herdr",
+    "version": "0.1.0",
+    "description": "Native Pi tools for safe Herdr subagent supervision",
+    "type": "module",
+    "private": true,
+    "keywords": [
+      "pi-package"
+    ],
+    "pi": {
+      "extensions": [
+        "./src/index.ts"
+      ]
+    },
+    "files": [
+      "src",
+      "README.md",
+      "REQUIREMENTS.md",
+      "docs/security.md",
+      "docs/acceptance.md",
+      "docs/live_verification.md",
+      "docs/evidence"
+    ],
+    "scripts": {
+      "typecheck": "tsc --noEmit",
+      "build:test": "tsc -p tsconfig.build.json",
+      "test": "npm run build:test && node --test --test-timeout=10000 .test-build/tests/*.test.js",
+      "check": "npm run typecheck && npm test"
+    },
+    "peerDependencies": {
+      "@earendil-works/pi-coding-agent": "*",
+      "@earendil-works/pi-ai": "*",
+      "typebox": "*"
+    },
+    "devDependencies": {
+      "@earendil-works/pi-coding-agent": "1.0.0",
+      "@earendil-works/pi-ai": "1.0.0",
+      "@types/node": "^22.0.0",
+      "typebox": "1.3.27",
+      "typescript": "^5.9.0"
+    }
+  },
+  "lock_sha256": "375b5eb7808219843b544cea546f2c67aa58b34e32647c30f0ce1bc61738ff3f",
+  "tree": "pi-subagent-herdr@0.1.0 /Users/cgint/dev-external/pi-subagent-herdr\n├─┬ @earendil-works/pi-ai@1.0.0\n│ └── typebox@1.3.27 deduped\n├─┬ @earendil-works/pi-coding-agent@1.0.0\n│ ├─┬ @earendil-works/pi-agent-core@1.0.0\n│ │ ├── @earendil-works/pi-ai@1.0.0 deduped\n│ │ └── typebox@1.3.27 deduped\n│ ├─┬ @earendil-works/pi-ai@1.0.0\n│ │ └── typebox@1.3.27 deduped\n│ └── typebox@1.3.27\n└── typebox@1.3.27\n\n",
+  "audit": {
+    "auditReportVersion": 2,
+    "vulnerabilities": {
+      "brace-expansion": {
+        "name": "brace-expansion",
+        "severity": "high",
+        "isDirect": false,
+        "via": [
+          {
+            "source": 1240103,
+            "name": "brace-expansion",
+            "dependency": "brace-expansion",
+            "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+            "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+            "severity": "moderate",
+            "cwe": [
+              "CWE-400",
+              "CWE-407"
+            ],
+            "cvss": {
+              "score": 5.3,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+            },
+            "range": ">=4.0.0 <5.0.12"
+          },
+          {
+            "source": 1240107,
+            "name": "brace-expansion",
+            "dependency": "brace-expansion",
+            "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+            "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+            "severity": "high",
+            "cwe": [
+              "CWE-400",
+              "CWE-674"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": ">=4.0.0 <5.0.11"
+          },
+          {
+            "source": 1240111,
+            "name": "brace-expansion",
+            "dependency": "brace-expansion",
+            "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+            "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+            "severity": "high",
+            "cwe": [
+              "CWE-400",
+              "CWE-674"
+            ],
+            "cvss": {
+              "score": 7.5,
+              "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+            },
+            "range": ">=4.0.0 <5.0.10"
+          }
+        ],
+        "effects": [],
+        "range": "4.0.0 - 5.0.11",
+        "nodes": [
+          "node_modules/@earendil-works/pi-coding-agent/node_modules/brace-expansion"
+        ],
+        "fixAvailable": true
+      }
+    },
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 1,
+        "critical": 0,
+        "total": 1
+      },
+      "dependencies": {
+        "prod": 1,
+        "dev": 233,
+        "optional": 26,
+        "peer": 0,
+        "peerOptional": 0,
+        "total": 233
+      }
+    }
+  },
+  "mechanic_review": "Anton → Dieter\n\nHEADLINE: Bounded correction complete. (1) tests/packaging.test.ts now reads the root manifest via `readFileSync(new URL(\"../../package.json\", import.meta.url), \"utf8\")` with an accurate compiled-layout comment; no candidate fallback, no dirname/join imports, assertions unchanged. (2) The initial \"red\" was re-classified honestly: it was a path/setup failure (ENOENT on `.test-build/package.json`), not a manifest assertion. (3) Contract red validated by a controlled regression mutation: exact pre-mechanic manifest (`agent/packaging-before-package.json`) temporarily installed at the root, no install/lock/node_modules changes, all three named packaging tests failed with genuine `ERR_ASSERTION`s. (4) Correct manifest restored byte-identical (sha256 `8824839e…2937` before and after) and `npm run check` is green 126/126 against the exact 1.0.0 local SDK. Node-quirk claim retracted: no such evidence exists (independent reproduction found `join` correct; my candidate-fallback code papered over the real setup failure and the anomaly was never isolated from my own broken test code).\n\nCONTRADICTS: NONE beyond the two lead-rejected claims, now corrected.\n\nNOT FOUND (load-bearing): NONE.\n\nUNDETERMINED: NONE. (My earlier \"Node quirk\" observation is retracted, not explained away: the inconsistent behaviour I observed was attributable to the broken test's own lookup logic plus observation of a different process than I assumed; no reproducible, isolated Node path-join anomaly is evidenced, so I claim none.)\n\nChanged authored paths (all within the allowed set):\n- tests/packaging.test.ts — direct URL-based root manifest read; accurate `.test-build/tests` comment; candidate logic and unused imports removed; all three assertions retained verbatim.\n- agent/packaging-worker-report.md — this report (rewritten, truthful).\n- No other authored file touched; package.json and package-lock.json are the previously delivered corrected versions (unchanged by this follow-up; lock still pins pi-coding-agent 1.0.0, pi-ai 1.0.0, typebox 1.3.27 dev, three wildcard peers, no executable host deps).\n\nCommands/checks (pass/fail):\n1. `npm run build:test` (against installed SDK 1.0.0) — PASS.\n2. Focused test, corrected manifest — PASS 3/3.\n3. Controlled negative probe (root manifest temporarily replaced by exact saved old manifest; no install, no lock/node_modules change): `node --test --test-timeout=10000 .test-build/tests/packaging.test.js` — FAIL 3/3 with genuine named assertion failures (wildcard peers, no executable host deps, exact dev pins), not ENOENT/import/setup.\n4. Restore: correct manifest copied back; sha256 verified identical to the preserved correct copy.\n5. `npm run check` (post-restore, full) — PASS 126/126.\n\nEvidence log paths (raw output lives here, not in this report):\n- agent/packaging-worker-rebuild.log — tsc build on SDK 1.0.0.\n- agent/packaging-worker-contract-red.log — controlled old-manifest regression (genuine assertion failures).\n- agent/packaging-worker-contract-green.log — final full `npm run check` 126/126.\n- Preserved without modification: agent/packaging-worker-baseline.log (original green 123/123), agent/packaging-worker-red.log (original invalid red — retained as evidence of the setup failure), agent/packaging-worker-install.log, agent/packaging-worker-green.log (superseded final; contract-green.log is the authoritative final).\n- Manifest preservation: agent/packaging-worker-tmp/package.json.correct (byte-identical to current root package.json).\n\nNote on red evidence: the genuine contract red above is a post-implementation controlled mutation, not the original pre-implementation TDD red the first report claimed. No original valid TDD red exists; that claim is retracted.\n\nClosure state: Lead acceptance pending. Stopping here; no cleanup beyond restoring the manifest (mandatory), no commit, no acceptance claim.\n",
+  "genuine_negative_assertions": "TAP version 13\n# Subtest: packaging: host packages are declared as wildcard peer dependencies\nnot ok 1 - packaging: host packages are declared as wildcard peer dependencies\n  ---\n  duration_ms: 1.065125\n  type: 'test'\n  location: '/Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:16:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    expected peerDependency @earendil-works/pi-coding-agent pinned to *\n    \n    '^0.99.1' !== '*'\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: '*'\n  actual: '^0.99.1'\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (file:///Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:19:16)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.start (node:internal/test_runner/test:944:17)\n    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)\n  ...\n# Subtest: packaging: host packages are not executable dependencies\nnot ok 2 - packaging: host packages are not executable dependencies\n  ---\n  duration_ms: 0.065083\n  type: 'test'\n  location: '/Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:22:1'\n  failureType: 'testCodeFailure'\n  error: 'dependencies must not contain typebox'\n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: true\n  actual: false\n  operator: '=='\n  stack: |-\n    TestContext.<anonymous> (file:///Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:24:16)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n    Test.run (node:internal/test_runner/test:1101:12)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ...\n# Subtest: packaging: host packages are dev-pinned to exact installed host versions\nnot ok 3 - packaging: host packages are dev-pinned to exact installed host versions\n  ---\n  duration_ms: 0.1315\n  type: 'test'\n  location: '/Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:27:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + undefined\n    - '1.0.0'\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: '1.0.0'\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (file:///Users/cgint/dev-external/pi-subagent-herdr/.test-build/tests/packaging.test.js:28:12)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n    Test.run (node:internal/test_runner/test:1101:12)\n    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 0\n# fail 3\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 71.177916\n",
+  "lead_final_check": "al\n  ---\n  duration_ms: 0.422292\n  type: 'test'\n  ...\n# Subtest: integration: strict getFlag throws for unregistered flag\nok 130 - integration: strict getFlag throws for unregistered flag\n  ---\n  duration_ms: 0.078875\n  type: 'test'\n  ...\n1..130\n# tests 130\n# suites 0\n# pass 130\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 7662.716542\n",
+  "smoke": {
+    "timestamp": "2026-10-02T17:48:42.724Z",
+    "host": "1.0.0",
+    "temporary": "/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/pi-subagent-package-wktixa",
+    "closed": true,
+    "pack": [
+      {
+        "id": "pi-subagent-herdr@0.1.0",
+        "name": "pi-subagent-herdr",
+        "version": "0.1.0",
+        "size": 294174,
+        "unpackedSize": 1608082,
+        "shasum": "6c67c7ca96fedc82c634c15bace885a1669de2f3",
+        "integrity": "sha512-zhgecKeUFEl9nrfKqS+z2VF7ULPR+1uFaO7jDEHLtYQrRERI3s+I/DXoux/kJsZt6OUOTncbxBiYq2KkB+FFog==",
+        "filename": "pi-subagent-herdr-0.1.0.tgz",
+        "files": [
+          {
+            "path": "README.md",
+            "size": 10414,
+            "mode": 420
+          },
+          {
+            "path": "REQUIREMENTS.md",
+            "size": 1041,
+            "mode": 420
+          },
+          {
+            "path": "docs/acceptance.md",
+            "size": 12477,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/cancel_live.json",
+            "size": 39734,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/env_reach_live.json",
+            "size": 28407,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/finish_tail_live.json",
+            "size": 34199,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/footer_controlled.json",
+            "size": 12885,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/footer_outside_pty.json",
+            "size": 17621,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/footer_raw_original.json",
+            "size": 3350,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/l3_registration_messages.json",
+            "size": 6801,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/l3_registration.json",
+            "size": 2724,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/lead_l2_complete.json",
+            "size": 14074,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/lead_l2_final.json",
+            "size": 16034,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/lead_l2_repaired.json",
+            "size": 10285,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/martin_l2_complete.json",
+            "size": 2,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/martin_l2.json",
+            "size": 6150,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_close.json",
+            "size": 105201,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_editable_blocker.json",
+            "size": 68291,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_final_gates.json",
+            "size": 162061,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_l3_draft_failure.json",
+            "size": 57245,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_l3_partial.json",
+            "size": 60706,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_l3_repaired.json",
+            "size": 185353,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_resumed_partial.json",
+            "size": 43353,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/native_visible_send.json",
+            "size": 36375,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/packaging_live.json",
+            "size": 20403,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/reliability_live.json",
+            "size": 387299,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/session_isolation_live.json",
+            "size": 44521,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/stageA_agent_probe.json",
+            "size": 17084,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/stageA_get_list_read.json",
+            "size": 1310,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/stageA_pane_split.json",
+            "size": 342,
+            "mode": 420
+          },
+          {
+            "path": "docs/evidence/visible_tail_live.json",
+            "size": 75800,
+            "mode": 420
+          },
+          {
+            "path": "docs/live_verification.md",
+            "size": 6639,
+            "mode": 420
+          },
+          {
+            "path": "docs/security.md",
+            "size": 2907,
+            "mode": 420
+          },
+          {
+            "path": "package.json",
+            "size": 1007,
+            "mode": 420
+          },
+          {
+            "path": "src/core.ts",
+            "size": 77553,
+            "mode": 420
+          },
+          {
+            "path": "src/index.ts",
+            "size": 27974,
+            "mode": 420
+          },
+          {
+            "path": "src/transport.ts",
+            "size": 10460,
+            "mode": 420
+          }
+        ],
+        "entryCount": 37,
+        "bundled": []
+      }
+    ],
+    "extensions": [
+      {
+        "path": "/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/pi-subagent-package-wktixa/package/src/index.ts",
+        "tools": [
+          "subagent_start",
+          "subagent_prompt",
+          "subagent_read",
+          "subagent_wait",
+          "subagent_send",
+          "subagent_interrupt",
+          "subagent_list",
+          "subagent_spaces",
+          "subagent_close"
+        ]
+      }
+    ],
+    "ok": true
+  },
+  "worker_cleanup": {
+    "request": {
+      "pre": {
+        "agent": "pi",
+        "agent_session": {
+          "agent": "pi",
+          "kind": "path",
+          "source": "herdr:pi",
+          "value": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-10-02T16-38-04-547Z_01a0fd7a-e402-7771-8572-bb08b2705c7e.jsonl"
+        },
+        "agent_status": "done",
+        "completion_seq": 1016,
+        "cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+        "focused": false,
+        "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+        "pane_id": "w1Y:p1",
+        "revision": 1,
+        "screen_detection_skipped": true,
+        "state_change_seq": 1016,
+        "tab_id": "w1Y:t1",
+        "terminal_id": "term_65cde280702097f",
+        "terminal_title": "π - pi-subagent-herdr",
+        "terminal_title_stripped": "π - pi-subagent-herdr",
+        "workspace_id": "w1Y"
+      },
+      "task": "Felix → Dieter: Anton revision report, test/manifest/lock diff and genuine three assertion-failure negative probe independently inspected; lead reran currentSDK typecheck and126/126 suite green. Execute exactly ONE registered subagent_close target='w1Y:p6', allowExternal=false. No worker follow-up remains. Do not touch other panes. Return actual result and stop.",
+      "code": 0,
+      "stdout": "{\"id\":\"cli:agent:prompt\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-10-02T16-38-04-547Z_01a0fd7a-e402-7771-8572-bb08b2705c7e.jsonl\"},\"agent_status\":\"done\",\"completion_seq\":1016,\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"pane_id\":\"w1Y:p1\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1016,\"tab_id\":\"w1Y:t1\",\"terminal_id\":\"term_65cde280702097f\",\"terminal_title\":\"π - pi-subagent-herdr\",\"terminal_title_stripped\":\"π - pi-subagent-herdr\",\"workspace_id\":\"w1Y\"},\"type\":\"agent_prompted\"}}\n",
+      "stderr": ""
+    },
+    "manager": {
+      "agent": "pi",
+      "agent_session": {
+        "agent": "pi",
+        "kind": "path",
+        "source": "herdr:pi",
+        "value": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-10-02T16-38-04-547Z_01a0fd7a-e402-7771-8572-bb08b2705c7e.jsonl"
+      },
+      "agent_status": "done",
+      "completion_seq": 1019,
+      "cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+      "focused": false,
+      "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+      "pane_id": "w1Y:p1",
+      "revision": 1,
+      "screen_detection_skipped": true,
+      "state_change_seq": 1019,
+      "tab_id": "w1Y:t1",
+      "terminal_id": "term_65cde280702097f",
+      "terminal_title": "π - pi-subagent-herdr",
+      "terminal_title_stripped": "π - pi-subagent-herdr",
+      "workspace_id": "w1Y"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "timestamp": 1790961771607,
+        "content": [
+          {
+            "type": "text",
+            "text": "Felix → Dieter: Anton revision report, test/manifest/lock diff and genuine three assertion-failure negative probe independently inspected; lead reran currentSDK typecheck and126/126 suite green. Execute exactly ONE registered subagent_close target='w1Y:p6', allowExternal=false. No worker follow-up remains. Do not touch other panes. Return actual result and stop."
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "timestamp": 1790961771609,
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_Lw0MSBq9JYj9BD31klLDUa2o|qdt97MELyTRBYlYD3KziJ7fHxWFBU2loA6wmmRDS2OhzC6pmlJ0aQItRrFuCr1SdhtpVwPPKaskSBB0gOO1HGqa373guMhTU9AGBMvHIYiOhXfoKRnU2xDRNwwVAAYQXoO34AdagjCunuCQkQ7Y2ZoidWWBuXwvNgjgSIU7OOkTkEwOgSpjUstyINlF9V2unkEj/FlDGOs8/sG1Ro2w6I3wi8S3OYL2JyO46jcKNZaMV1b5rMNuE/G5YM72h7UBxua7tY7z8OoTYMUL8D72I5tdhnes8dfZ5MR49GbSFN9nrSAaKBbIH9hKEdpYXXa59oe2KTQ850GvadMPJfy0/JTmbq/8r2w6eDIZat3LATIB0OHXtGjFRBtQjJF5XBslaPnmm8XNJ++vY2QYWYiAhlMpEoi26F+L4raE=",
+            "name": "subagent_close",
+            "arguments": {
+              "target": "w1Y:p6"
+            }
+          }
+        ]
+      },
+      {
+        "content": []
+      },
+      {
+        "role": "toolResult",
+        "toolName": "subagent_close",
+        "details": {
+          "ok": true,
+          "outcome": "closed",
+          "phase": "close",
+          "owned": false,
+          "pane_id": "w1Y:p6",
+          "code": "ok",
+          "hint": "pane closed and absence verified (typed pane_not_found)"
+        },
+        "isError": false,
+        "timestamp": 1790961775190,
+        "content": [
+          {
+            "type": "text",
+            "text": "closed (phase: close); pane w1Y:p6; pane closed and absence verified (typed pane_not_found)"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "timestamp": 1790961775191,
+        "content": [
+          {
+            "type": "text",
+            "text": "`subagent_close` returned:\n\n- `pane`: `w1Y:p6`\n- result: `closed`\n- note: `pane closed and absence verified (typed pane_not_found)`\n\nNo other panes were touched.",
+            "textSignature": "{\"v\":1,\"id\":\"py8GQuRh/0zL1ZaC+9yYqt2Uba3Gkmf6erOqoQzlaPoHW2v3afnPVZdMhuBss5mdFJF3Du1YPqUeWbUX+3Oh9st3Ie9x9/surQ+gBzml2eK+3RJOilFSHAovyIdgm6frWP0d9sueprqJ3d56JBU4q81HfLSYshRXCnaa6czIXApOLWY8eeLZhEh3GSxvF6mEf+N4fDdhmZoqlmm0poeOxYswI2EhUyyPmSCnUJZsd/sIHL4ZJcn+PhZgV3TalAvK9xFJu3jO3rt4BbWAkEeg0Pq36R7ubMkUguz2BPm9Rd6vWW+xcnl7qoQFyBJuHBoC8fyfgCujsAEW4heKAFrIQA874bWH4pU6XEltNy4r96zCyUih+zhnUqFqYwfJ2jbobHHiz/vRMAfkUX2M/lrJd6AhHdEtRpmNAtfU\",\"phase\":\"final_answer\"}"
+          }
+        ]
+      }
+    ],
+    "result": {
+      "ok": true,
+      "outcome": "closed",
+      "phase": "close",
+      "owned": false,
+      "pane_id": "w1Y:p6",
+      "code": "ok",
+      "hint": "pane closed and absence verified (typed pane_not_found)"
+    },
+    "independent_absence": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w1Y:p6 not found\"},\"id\":\"cli:pane:get\"}\n"
+  },
+  "source_repairs": "Finish/fastbounded terminal console tail and explicit unexpected_wait_state guards; original real assertion-red logs preserved under agent. No tests weakened; previous tautology strengthened.",
+  "parser_check": [
+    {
+      "args": [
+        "-ne",
+        "--dm-read",
+        "BRIEF"
+      ],
+      "parsed": {
+        "messages": [],
+        "fileArgs": [],
+        "unknownFlags": {},
+        "diagnostics": [],
+        "noExtensions": true
+      }
+    },
+    {
+      "args": [
+        "-ne",
+        "BRIEF"
+      ],
+      "parsed": {
+        "messages": [
+          "BRIEF"
+        ],
+        "fileArgs": [],
+        "unknownFlags": {},
+        "diagnostics": [],
+        "noExtensions": true
+      }
+    },
+    {
+      "args": [
+        "-ne",
+        "--dm-read=1",
+        "BRIEF"
+      ],
+      "parsed": {
+        "messages": [
+          "BRIEF"
+        ],
+        "fileArgs": [],
+        "unknownFlags": {},
+        "diagnostics": [],
+        "noExtensions": true
+      }
+    }
+  ]
+}
