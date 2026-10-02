@@ -2,3 +2,5 @@ node_modules/
 .test-build/
 agent/
 .pi/
+# Pi session / goal state — local runtime state, never commit
+.pi/goals/

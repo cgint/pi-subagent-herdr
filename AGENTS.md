@@ -36,6 +36,10 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - Verifier-owned test workers/managers/workspaces independently absent. Other-repository Firstmates may remain available as peers, not cleanup targets. Historical pane handles are never reusable; no buddy/user pane was controlled.
 - Authorized always-on runtime loading and fresh native editable-controller→readonly-child integration verified; evidence/limits: docs/evidence/nested_worker_live.json. Readonly workers load the extension but their --tools allowlist excludes native tools; default start mode is readonly, so recursive controllers must explicitly be editable.
 
+## Current ergonomic adaptation (2026-10-02)
+
+User authorizes a commit-all checkpoint followed by one or two controller/reviewer/worker implementation teams. Agreed lead/buddy contract and intermediate reasoning: `docs/tool_usage_review.md`. Keep nine session-derived commands; pane ID is the only caller-facing address, no public continuation/cursor. Simplify permission barriers and combine useful wait/console and close/verification workflows; preserve proven startup delivery and honest state-versus-task semantics. Use one team with a sole source writer for tightly coupled core/index/tests, independent readonly reviewer and controller. Internal pending context is memory-only, not a persistent task registry. No hacks, automatic CLI fallbacks, overengineering, multiplexer-adapter expansion, external runtime/config/model edits, packaging or push. Firstmate owns integration and acceptance; user-designated buddy remains an equal-level peer, never a team cleanup resource.
+
 ## Declared limits / follow-up
 - Installed readonly inline-brief parser quirk persists on0.99.1/1.0.0; extension avoids it via post-detection prompt. Later authorized extension-loading rollout does not repair or rely on positional briefs.
 - Multiline send deliberately rejected. Genuine pi-herdr unavailable; conditional co-loading unexecuted, never claimed collision-free.
