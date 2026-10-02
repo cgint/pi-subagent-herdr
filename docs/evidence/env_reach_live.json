@@ -1,0 +1,563 @@
+{
+  "status": "OBSERVED",
+  "calls": [
+    {
+      "args": [
+        "pane",
+        "get",
+        "w21:p1"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:pane:get\",\"result\":{\"pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"pane_id\":\"w21:p1\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":60},\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee81123dd8d\",\"workspace_id\":\"w21\"},\"type\":\"pane_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "pane",
+        "split",
+        "w21:p1",
+        "--direction",
+        "right",
+        "--cwd",
+        "/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture",
+        "--no-focus"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:pane:split\",\"result\":{\"pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":60},\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"pane_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "pane",
+        "run",
+        "w21:p2",
+        "/Users/cgint/.pi/profiles/minimal/agent/skills/sub-agent-herdr-supervisor/scripts/herdr-worker.sh --mode editable --"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 1,
+        "signal": null,
+        "stdout": "",
+        "stderr": "{\"error\":{\"code\":\"agent_not_found\",\"message\":\"agent target w21:p2 not found\"},\"id\":\"cli:agent:get\"}\n",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 1,
+        "signal": null,
+        "stdout": "",
+        "stderr": "{\"error\":{\"code\":\"agent_not_found\",\"message\":\"agent target w21:p2 not found\"},\"id\":\"cli:agent:get\"}\n",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":0,\"state_change_seq\":0,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "rename",
+        "w21:p2",
+        "env-mur8prpy"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:rename\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"idle\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1023,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"working\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1024,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "prompt",
+        "w21:p2",
+        "Use exactly one bash call: printf '%s\\n' \"$HERDR_ENV\" \"$HERDR_PANE_ID\" \"$PI_WORKER_DEFAULT_MODEL\". Reply only actual stdout. Do not print other environment variables; no writes.",
+        "--wait",
+        "--timeout",
+        "30000"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:prompt\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"done\",\"completion_seq\":1025,\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1025,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_prompted\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"done\",\"completion_seq\":1025,\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1025,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "pane",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:pane:get\",\"result\":{\"pane\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"done\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"pane_id\":\"w21:p2\",\"revision\":1,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":58},\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"pane_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "agent",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:agent:get\",\"result\":{\"agent\":{\"agent\":\"pi\",\"agent_session\":{\"agent\":\"pi\",\"kind\":\"path\",\"source\":\"herdr:pi\",\"value\":\"/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl\"},\"agent_status\":\"done\",\"completion_seq\":1025,\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture\",\"name\":\"env-mur8prpy\",\"pane_id\":\"w21:p2\",\"revision\":1,\"screen_detection_skipped\":true,\"state_change_seq\":1025,\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee811830f8e\",\"terminal_title\":\"π - resumed-editable-fixture\",\"terminal_title_stripped\":\"π - resumed-editable-fixture\",\"workspace_id\":\"w21\"},\"type\":\"agent_info\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "pane",
+        "close",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:pane:close\",\"result\":{\"type\":\"ok\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "pane",
+        "get",
+        "w21:p2"
+      ],
+      "result": {
+        "exitCode": 1,
+        "signal": null,
+        "stdout": "",
+        "stderr": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w21:p2 not found\"},\"id\":\"cli:pane:get\"}\n",
+        "timedOut": false,
+        "truncated": false
+      }
+    },
+    {
+      "args": [
+        "workspace",
+        "close",
+        "w21"
+      ],
+      "result": {
+        "exitCode": 0,
+        "signal": null,
+        "stdout": "{\"id\":\"cli:workspace:close\",\"result\":{\"type\":\"ok\"}}\n",
+        "stderr": "",
+        "timedOut": false,
+        "truncated": false
+      }
+    }
+  ],
+  "factory": {
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "{\"id\":\"cli:workspace:create\",\"result\":{\"root_pane\":{\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"pane_id\":\"w21:p1\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":60},\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee81123dd8d\",\"workspace_id\":\"w21\"},\"tab\":{\"agent_status\":\"unknown\",\"focused\":false,\"label\":\"1\",\"number\":1,\"pane_count\":1,\"tab_id\":\"w21:t1\",\"workspace_id\":\"w21\"},\"type\":\"workspace_created\",\"workspace\":{\"active_tab_id\":\"w21:t1\",\"agent_status\":\"unknown\",\"focused\":false,\"label\":\"env-reach-proof\",\"number\":5,\"pane_count\":1,\"tab_count\":1,\"workspace_id\":\"w21\"}}}\n",
+    "stderr": "",
+    "timedOut": false,
+    "truncated": false
+  },
+  "workspace": "w21",
+  "owned": [
+    {
+      "agent_status": "unknown",
+      "cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+      "focused": false,
+      "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr",
+      "pane_id": "w21:p1",
+      "revision": 0,
+      "scroll": {
+        "max_offset_from_bottom": 0,
+        "offset_from_bottom": 0,
+        "viewport_rows": 60
+      },
+      "tab_id": "w21:t1",
+      "terminal_id": "term_65cdee81123dd8d",
+      "workspace_id": "w21"
+    },
+    {
+      "agent_status": "unknown",
+      "cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture",
+      "focused": false,
+      "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture",
+      "pane_id": "w21:p2",
+      "revision": 0,
+      "scroll": {
+        "max_offset_from_bottom": 0,
+        "offset_from_bottom": 0,
+        "viewport_rows": 60
+      },
+      "tab_id": "w21:t1",
+      "terminal_id": "term_65cdee811830f8e",
+      "workspace_id": "w21"
+    }
+  ],
+  "selector": "home-llm/qwen3.8-27b-nvfp4-dflash2-direct:off",
+  "task": "Use exactly one bash call: printf '%s\\n' \"$HERDR_ENV\" \"$HERDR_PANE_ID\" \"$PI_WORKER_DEFAULT_MODEL\". Reply only actual stdout. Do not print other environment variables; no writes.",
+  "start": {
+    "ok": true,
+    "outcome": "terminal_observed_after_working",
+    "phase": "submission",
+    "pane_id": "w21:p2",
+    "status": "done",
+    "seq": 1025,
+    "code": "done",
+    "hint": "terminal state observed, not task completion; verify task-specific output",
+    "continuation": "cont_1_5b227732313a"
+  },
+  "worker": {
+    "agent": "pi",
+    "agent_session": {
+      "agent": "pi",
+      "kind": "path",
+      "source": "herdr:pi",
+      "value": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-resumed-editable-fixture--/2026-10-02T17-31-48-338Z_01a0fdac-14f2-74e6-931d-be9d118f1618.jsonl"
+    },
+    "agent_status": "done",
+    "completion_seq": 1025,
+    "cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture",
+    "focused": false,
+    "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/resumed-editable-fixture",
+    "name": "env-mur8prpy",
+    "pane_id": "w21:p2",
+    "revision": 1,
+    "screen_detection_skipped": true,
+    "state_change_seq": 1025,
+    "tab_id": "w21:t1",
+    "terminal_id": "term_65cdee811830f8e",
+    "terminal_title": "π - resumed-editable-fixture",
+    "terminal_title_stripped": "π - resumed-editable-fixture",
+    "workspace_id": "w21"
+  },
+  "worker_messages": [
+    {
+      "role": "user",
+      "timestamp": 1790962310631,
+      "content": [
+        {
+          "type": "text",
+          "text": "Use exactly one bash call: printf '%s\\n' \"$HERDR_ENV\" \"$HERDR_PANE_ID\" \"$PI_WORKER_DEFAULT_MODEL\". Reply only actual stdout. Do not print other environment variables; no writes."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "provider": "home-llm",
+      "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+      "timestamp": 1790962310638,
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "call_cb6bd83d87da46d6b260ce9d",
+          "name": "bash",
+          "arguments": {
+            "command": "printf '%s\\n' \"$HERDR_ENV\" \"$HERDR_PANE_ID\" \"$PI_WORKER_DEFAULT_MODEL\"",
+            "intent": "Print exactly the three requested environment variable values"
+          }
+        }
+      ]
+    },
+    {
+      "role": "toolResult",
+      "toolName": "bash",
+      "timestamp": 1790962311110,
+      "content": [
+        {
+          "type": "text",
+          "text": "1\nw21:p2\nhome-llm/qwen3.8-27b-nvfp4-dflash2-direct:off\n"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "provider": "home-llm",
+      "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+      "timestamp": 1790962311111,
+      "content": [
+        {
+          "type": "text",
+          "text": "1\nw21:p2\nhome-llm/qwen3.8-27b-nvfp4-dflash2-direct:off"
+        }
+      ]
+    }
+  ],
+  "child_stdout": "1\nw21:p2\nhome-llm/qwen3.8-27b-nvfp4-dflash2-direct:off\n",
+  "actual_models": [
+    "home-llm/qwen3.8-27b-nvfp4-dflash2-direct"
+  ],
+  "prior_invalid_probe": {
+    "artifact": "agent/env-reach-live.json",
+    "reason": "macOS /usr/bin/printenv accepts one name; locally reproduced A=one B=two printenv A B -> one. Not env propagation evidence."
+  },
+  "close": {
+    "ok": true,
+    "outcome": "closed",
+    "phase": "close",
+    "pane_id": "w21:p2",
+    "code": "ok",
+    "hint": "pane closed and absence verified (typed pane_not_found)"
+  },
+  "cleanup_list": {
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "{\"id\":\"cli:pane:list\",\"result\":{\"panes\":[{\"agent_status\":\"unknown\",\"cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"focused\":false,\"foreground_cwd\":\"/Users/cgint/dev-external/pi-subagent-herdr\",\"pane_id\":\"w21:p1\",\"revision\":0,\"scroll\":{\"max_offset_from_bottom\":0,\"offset_from_bottom\":0,\"viewport_rows\":60},\"tab_id\":\"w21:t1\",\"terminal_id\":\"term_65cdee81123dd8d\",\"workspace_id\":\"w21\"}],\"type\":\"pane_list\"}}\n",
+    "stderr": "",
+    "timedOut": false,
+    "truncated": false
+  },
+  "workspace_close": {
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "{\"id\":\"cli:workspace:close\",\"result\":{\"type\":\"ok\"}}\n",
+    "stderr": "",
+    "timedOut": false,
+    "truncated": false
+  },
+  "absence": {
+    "exitCode": 1,
+    "signal": null,
+    "stdout": "",
+    "stderr": "{\"error\":{\"code\":\"workspace_not_found\",\"message\":\"workspace w21 not found\"},\"id\":\"cli:workspace:get\"}\n",
+    "timedOut": false,
+    "truncated": false
+  }
+}

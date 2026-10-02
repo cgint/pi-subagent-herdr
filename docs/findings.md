@@ -1,4 +1,4 @@
-# Findings — Discovery Phase (Plan 1 output)
+# Findings — historical discovery and current boundaries
 
 **Date:** 2026-09-30 · **Herdr CLI:** 0.9.3 · **Lead:** Horst · **Peer audit:** Judith (w2V:p2)
 **Sources:** `docs/worker1_report.md` (live CLI experiments, incl. Follow-Up EXP A/B/C), `docs/worker2_report.md` (scripts + sibling extensions + Pi API), `docs/worker3_session_mining_report.md` (320-session mine), `docs/worker4_script_usage_report.md` (skill-script usage/caveats mine), lead's real-wrapper experiment (2026-09-30, scratch workspace w35, pi 0.99.1).
@@ -6,6 +6,16 @@
 **Scope constraint:** [Inferred from REQUIREMENTS.md wording "this is the only supported"] Pi is the only supported sub-agent. No Claude/Codex behaviour needed. (Judith: label the inference, keep it confirmable.)
 
 ---
+
+## Current verified boundary (2026-10-02)
+
+Historical discovery/open-decision labels below are not continuation instructions. User authority/scope corrections at §6 govern; first-version acceptance evidence and remaining limits live in docs/live_verification.md/docs/acceptance.md.
+
+- Actual child stdout proves Herdr/model env reach; genuine SDK session isolation/cancel PID reaping and registered/directCLI parity are recorded. Console tails remain snapshots, not answers. Finish tails and nonterminal-success rejection are repaired/tested.
+- Separate348-call Qwen loop was honestly timed out and Escape-recovered. Fixed20turn batch passes only its functional contract. Multiline rejected; genuine sibling unavailable, co-load not claimed.
+- SDK1.0.0 host-peer packaging validated without bundled host modules. Real residual host brace-expansion DoS risk explicitly reassessed in docs/security.md; no clean audit.
+- Pure installed1.0.0 parseArgs still loses positional BRIEF after --dm-read; installed runtime remains unchanged and extension never passes positional tasks.
+- Rejected packaging red was ENOENT/incorrect path assumptions, not Node defect or true TDD. Correct root lookup and genuine later controlled old-manifest assertion failures are preserved. Do not repeat those false claims.
 
 ## 1. Per-requirement table
 
@@ -65,7 +75,7 @@ From 320 sessions (1,947 herdr tool results; 58 typed errors: 23 `agent_not_foun
 5. **No blind resend** after timeout/`agent_prompt_stalled` — inspect `agent get`/`agent read` + compare `state_change_seq` first.
 6. **Timeout is a wait ceiling, not a worker kill** — on timeout, inspect; the worker keeps running.
 7. **Preflight on prompt** — refuse `working`/`blocked` targets (`prompt.sent:false` + reason); `prompt.sent` is the only delivery signal.
-8. **Write-guard semantics** — a blocked write in a readonly worker is guard *success*; the report path is carved out in both modes.
+8. **Write-guard semantics** — a blocked write in a readonly worker is guard *success*. *(Correction, 2026-09-30, verified against installed `pi-worker-runtime.sh`: the write guard covers `.` in both modes with **no** report-path carve-out; the earlier "carved out" statement was an assumption. Readonly trial evidence is terminal-only; report artifacts belong to editable trials inside the worker cwd.)*
 9. **Pane-scoped control plane** — all primitives presuppose the supervisor Pi runs inside a Herdr pane (`HERDR_ENV=1`, `HERDR_PANE_ID` set); the extension must check and report this at session start (pi-herdr toasts on missing herdr).
 10. **Long model turns are normal** — modal await timeout 30 min; tool implementations must tolerate multi-minute waits with AbortSignal support.
 11. **Peer Pi runtime breakage** — workers have hit a broken/corrupt Pi runtime (missing JS chunk → pi fails to start mid-session); the supervisor must treat "pane alive but no agent / crash text" as a distinct failure class from `agent_not_found` and surface the pane for inspection rather than retrying blindly. [Observed in sessions] Wilhelm §failure-surface.
@@ -85,9 +95,13 @@ Stefan's numbers (320 sessions, 101 with commands, 1,947 tool results, 58 typed 
 - **Multi-line `send-text`** behaviour.
 - `protocol_mismatch` (5×) / `server_not_running` (2×) root cause & recovery — no pattern observed.
 
-## 6. User decisions
+## 6. Decisions (current canonical)
 
-**Approved in the continuation session:** (1) distinct `subagent_*` tool names; (2) Escape for turn interruption, pane close for termination (user-approved clarification of R-6); (3) reuse the bash worker runtime initially; (4) patch the live skill plus regression test and isolated live-launch verification. Design and implementation still require Plan 2, peer review, and user agreement. The live-skill patch is authorized but not yet performed.
+**Current state (2026-09-30):** Plan 2 was designed, peer-reviewed (buddy: no approval blockers), and — after the user delegated technical design, implementation and acceptance to the Firstmate — implemented without a human approval gate. The repository-only scope correction (below) superseded the external live-skill patch option; the extension reuses the installed runtime unchanged with no positional task. Acceptance state is tracked in `docs/acceptance.md` per the live acceptance contract (`agent/live-acceptance-contract.md`); source evidence in this file is historical, authoritative requirements stay in `REQUIREMENTS.md`.
+
+**Approved (user) in the continuation session:** (1) distinct `subagent_*` tool names; (2) Escape for turn interruption, pane close for termination (user-approved clarification of R-6); (3) reuse the bash worker runtime initially.
+
+**Superseded (historical only):** option 4's "patch the live skill" — the external live-skill patch/regression was authorized then **removed from scope** by the user's scope correction. The `--dm-read` brief-swallow bug remains a known quirk of the installed skill (informational; flag to user); the extension never hits it because it never passes positional briefs.
 
 ### Discovery-era options (historical rationale)
 
@@ -103,3 +117,27 @@ Stefan's numbers (320 sessions, 101 with commands, 1,947 tool results, 58 typed 
 - Fritz ran `agent wait` against Judith's pane (w2V:p2) in round 1 — outside his scratch box; read-only, findings still valid, flagged in his report, corrected in round 2 (re-verified inside scratch only).
 - Lead interrupt timing fault: both session miners were `esc`-interrupted exactly while writing their reports; both were given one bounded "write the report now" follow-up and completed cleanly. Lesson: never `esc` a worker at "looks stuck" — check `agent read` for a write-in-flight first.
 - `ctrl+d` closes **whatever is in the foreground** — it exits an idle Pi *and* an empty zsh prompt (pane then auto-closes, workspace closes with its last pane). Key-sends must target the intended process; after any `ctrl+d`, re-verify the pane exists before the next action.
+
+## Technical decision authority (user clarification)
+The user owns requirements and delegates technical design, implementation and acceptance to the Firstmate, supported by equal-level buddy discussion, bounded workers and independent verification. The earlier human Plan 2 approval gate is superseded; do not ask the user to approve architecture. Escalate only actual requirements/scope/authorization blockers.
+
+## Scope correction — repository-only extension
+User explicitly forbids changes to the installed supervisor skill scripts. External live-skill patch/regression is removed from scope, superseding earlier authorization and plan gates. Reuse the installed worker runtime unchanged with no positional task; deliver through agent prompt after detection. Implement and test all extension changes in this repository.
+
+## Live implementation regression gates (2026-09-30)
+
+The guarded production digest probe (`docs/evidence/lead_l2_complete.json`) independently proves readonly task execution and first-close typed absence, **not full lifecycle acceptance**. Its continuation wait returned the unchanged startup idle sequence before the task began. Confirmed delivery must be distinguished from timeout/unknown delivery, and continuation waiting must reject stale terminal snapshots while keeping bounded cancellation, identity checks, idle/done/blocked support and honest task-verification limits. The installed reporter is under the selected profile's `extensions/`, not beside the launcher; v9 reports idle/working/blocked. Neither a done-only gate nor a numeric sequence-gap shortcut is justified by that source.
+
+Plan 2's idempotence needs reconciliation with ownership removal after verified close: any previously-closed marker must be followed by a fresh typed absence probe, never treated as authority over a reused live pane ID. External-target safeguards remain mandatory. The repaired readonly L2 replay is independently verified in `docs/evidence/lead_l2_final.json`: delivery-proven continuation, sampled working → done, original computed task output, normal/repeated close and independent absence. Native lifecycle/reliability gates remain separate and pending.
+
+For original evidence, use the actual `agent_session.value` returned by `agent get`; profile-specific session storage may differ from `~/.pi/agent/sessions/`. Role-separated worker messages and original call/result records are canonical evidence; reconstructed reports and serialized-text substring matches are not.
+
+### Managed startup readiness and result phases
+
+Screen-detected `pi`/`idle` can precede the editor submit handler and leave a task as an unsubmitted draft. Require authoritative managed `agent_session` metadata from `herdr:pi` before task delivery; native status/sequence alone is not readiness. Verified frozen identities must retain exact workspace and terminal IDs on mutator preflight and every continuation poll, including failure on missing metadata.
+
+A delivered prompt previously retained the label `phase: preflight` despite original worker records proving execution. The source now reports `submission` after delivery; do not interpret that historical mislabeled result as an undelivered task or resend blindly. Native managers must reload changed source before validating the corrected label.
+
+### Active console history boundary (Herdr 0.9.3, resumed Pi 1.0.0)
+
+`agent read --source recent-unwrapped --lines 100` can fail with typed `agent_not_idle` while Pi is working: reading alternate-screen history would scroll the running TUI. Use the documented `visible` source for that specific condition; do not suppress unrelated errors or fabricate an empty tail. Idle reads retain deep history. Original failure and repaired bounded live trace are reflected in `docs/evidence/visible_tail_live.json`; native repaired-path replay is pending.

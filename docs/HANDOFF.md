@@ -1,59 +1,37 @@
 # Cross-machine handoff
 
-## Resume here
+## Re-entry
 
-Read, in order:
-1. `AGENTS.md` — collaboration and memory rules.
-2. `REQUIREMENTS.md` — authoritative user requirements R-1 through R-10.
-3. `docs/findings.md` — discovery synthesis, evidence labels, caveats, and four pending decisions (§6).
-4. This file — portability and next steps.
+Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/live_verification.md. Canonical evidence, not old chat/worker summaries, determines verified scope. Recorded pane IDs/absolute paths are historical provenance, never reusable handles. No live owned handles remain.
 
-## Current state
+## Current outcome
 
-Discovery is complete and peer-reviewed by Judith. No TypeScript extension, package setup, implementation, or implementation tests exist yet. `docs/plan.md` and `plan_1_information_gathering.md` are investigation plans, **not an approved architecture**. Tool names in older overview/planning material are illustrative, not agreed schemas.
+First-version R-1..R-10 functional gates independently verified. Exact original role/fixture proofs, failures and limits are indexed in live_verification. Current strict SDK1.0.0 tests/package load, native lifecycle, fixed20turn batch, direct child env, genuine fork/new/resume ownership, actual wait PID cancellation and complete owned cleanup are evidenced. Terminal status/timeout is not task acceptance; small console tails can be footer/padding.
 
-Evidence was committed in `0b2df33`; pairing memory in `81b1750`. Judith inspected the committed findings and explicitly agreed that the four decisions can be presented. Her important correction is preserved in findings R-2 and caveat 12: the supposed fast-task completion in the real-wrapper experiment was actually startup after an **undelivered** brief. It does not validate fast-task completion. The subsequent prompt-delivered working→done experiment is valid.
+User owns requirements and delegated technical design/implementation/acceptance to Firstmate. Historical human Plan2 approval gate is superseded. Buddy reviewed the design; preserve equal-level partnership, never delegate grunt work to the user's buddy or reuse its historical handles. Firstmate owns strategy/integration/acceptance; verify bounded-worker artifacts independently and retire only owned resources.
 
-## User decisions — approved in continuation
+## Repository-only scope
 
-- **Live skill:** patch plus regression test, then isolated live-launch proof of task receipt. Authorized, not yet performed.
-- **Tool overlap:** distinct `subagent_*` names.
-- **Interrupt:** Escape aborts a turn; pane close terminates the session. This is the user-approved clarification of R-6.
-- **Worker runtime:** reuse the tested bash runtime initially; native TypeScript tools orchestrate it.
+Installed supervisor scripts/configuration must not be modified. Earlier external readonly patch/regression authorization was explicitly withdrawn. Reuse runtime unchanged, no positional payload; send task through agent prompt only after managed readiness. Distinct subagent_* names; Escape interrupts, pane close terminates. Never recreate .sub_agent_conf, push or publish without permission.
 
-The lead remains Firstmate. The user-designated buddy is an equal-level discussion partner; cheap, capable workers handle bounded grunt work. Verify the current buddy pane before interaction; do not own or close it.
+## Destination dependencies
 
-## Next work
+Locate actual Herdr CLI, compatible Pi, installed sub-agent-herdr-supervisor scripts/herdr-worker.sh, selected worker profile/provider auth/model and reporter under that profile's extensions/herdr-agent-state.ts. Verify model generation, not just /v1/models availability. Do not silently substitute models.
 
-1. Execute the authorized live-skill patch workflow below after inspecting the destination runtime; verify independently and persist the outcome.
-2. `docs/plan_2_design.md` is prepared and reviewed with the current user-designated buddy, who found no remaining approval blockers. Obtain user agreement before extension implementation. Runtime patch remains authorized but unperformed.
-3. Carry delivery proof into the wait condition itself: terminal state plus advanced seq is not enough. Recommended delivery is `herdr agent prompt` after detection, with baseline taken for that agent after startup. Wait for both `idle` and `done`; do not equate blocked/timeout with successful work.
-4. If a live-skill patch is authorized, inspect the destination machine's runtime first, regression-test parsing and perform an isolated live launch proving receipt, then clean up owned panes. Do not assume the candidate fix is already verified end-to-end.
+Validated resumed environment: Pi1.0.0/Herdr0.9.3/Node22.23.3/TypeBox1.3.27; initial native registration/footer controls on0.99.1. Host SDK/pi-ai/TypeBox are wildcard peers, exact local development pins1.0.0/1.0.0/1.3.27. Local npm ci and documented extension/package loading require no installed configuration edits. Read installed matching SDK docs on upgrade.
 
-## Portability: external dependencies are not in this repository
+## Real limits / follow-up
 
-The repository contains research artifacts, not the external source trees, skill runtime, Pi installation, Herdr installation, or raw session logs. Worker reports preserve extracted evidence and local source references; those absolute paths are historical provenance, not portable instructions. Restore or locate the following on the destination machine before live work:
+- Multiline send deliberately rejected. Genuine sibling pi-herdr was unavailable in checked local/profile configuration; conditional co-loading unexecuted, no collision-free claim. Establish actual entrypoint before attempting it.
+- Qwen fixture separately looped348 pwd calls; timeout/inspected Escape recovery was honest. Upstream HTTP500 failure is also preserved. Passing20turn functional batch is not statistical reliability.
+- Installed readonly inline brief parser quirk persists in0.99.1/1.0.0; extension post-detection delivery avoids it. Informational installed-skill bug, not authorization to patch it.
+- SDK1.0.0 still pins brace-expansion5.0.9; docs/security.md owns explicit residual host-glob DoS risk acceptance and upgrade/reassessment triggers. Audit is not clean.
+- Working alternate-screen history cannot scroll: fallback only for typed agent_not_idle; unrelated console errors remain explicit. Finish/fastbounded terminal results include console tails; unexpected_wait_state rejects nonterminal successful CLI payloads.
 
-- Herdr CLI (research used **0.9.3**) and Pi (research used **0.99.1**); record actual destination versions and recheck version-sensitive conclusions.
-- `sub-agent-herdr-supervisor` skill and its `scripts/`: `herdr-start-subagent.sh`, `herdr-worker.sh`, `pi-worker-runtime.sh`, `herdr_prompt_agent.sh`, `herdr_await_agent.sh`, observation library and launcher tests.
-- Worker profile (`minimal` in the investigation), `pi-profile`, provider authentication/model availability, focus-guard/tool-intent/provider extensions, and especially `herdr-agent-state.ts` lifecycle reporting.
-- Sibling `pi-herdr` repository if comparing or reusing its implementation.
-- Pi SDK documentation/examples matching the installed version before implementation.
+## Verification/cleanup discipline
 
-Original source root: `/Users/christian.gintenreiter/.pi/profiles/minimal/agent/skills/sub-agent-herdr-supervisor/scripts/`. Pi was installed under `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/`. Resolve equivalent paths on the destination; do not hardcode these.
+Do not replay completed gates because historical notes say pending. For changes, run npm run check and relevant fresh owned live probes, require hidden task oracle/original user→tool-result→assistant proof, frozen workspace/terminal identity, confirmed-vs-unknown receipt distinction and newer terminal state. Native calls are separate from L2 direct-core/CLI proof. New/fork owns nothing; original resume restores only identity-verified records. Cancel reaps local CLI, not worker.
 
-The source machine had `PI_WORKER_DEFAULT_MODEL` set to a qwen cloudrun model. Check destination environment rather than assuming model selection. **No `.sub_agent_conf` belongs to this repo**: the user explicitly removed it; do not recreate it automatically.
+All owned resources independently absent after inspection; user/buddy untouched. Raw rejected/diagnostic logs remain ignored in agent/, not shipped. Package smoke extracted outside repo ancestry and removed its own temporary directory. Pairing memory is repository-owned; agent/ is ephemeral.
 
-The original peer pane `w2V:p2` (Judith), lead pane `w2V:p1`, and scratch workspace `w35` are session-local identifiers. Do not target them on another machine. Research workers and scratch workspace were cleaned up; establish a fresh peer and verify current pane/workspace ownership before interacting. Old handoffs are archival, not instructions to relaunch workers.
-
-## Evidence map
-
-- `docs/worker1_report.md`: Fritz, CLI experiments and interrupt/wait follow-ups.
-- `docs/worker2_report.md`: Clara, runtime scripts, sibling extensions, Pi API.
-- `docs/worker3_session_mining_report.md`: Stefan, session-level CLI usage.
-- `docs/worker4_script_usage_report.md`: Wilhelm, skill-script usage and failure patterns.
-- `docs/findings.md`: canonical synthesis, including lead's real-wrapper/parser experiments and peer corrections. Raw scratch captures/session logs were not committed; precise parser behavior should be reproduced against destination Pi rather than treated as permanent.
-
-## Git transfer
-
-No Git remote was configured when this handoff was prepared. User will commit/push and clone on the other machine. Ensure all handoff updates are committed and pushed; after cloning check `git status --short` and read this file before resuming. Do not assume local chat history, installed skills, or session state travels with Git.
+Git remote/commit/push are user responsibilities unless explicitly authorized. Review git status before transfer; do not assume untracked implementation/docs are already committed. Historical discovery reports remain provenance, not active instructions.

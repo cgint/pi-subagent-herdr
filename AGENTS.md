@@ -26,13 +26,22 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Memory Checkpoint:** Before concluding meaningful work, identify durable findings, update canonical files, prune stale notes, and report updates clearly.
 - **Memory Boundary:** Repository-owned docs (`AGENTS.md`, `PROJECT_OVERVIEW.md`, `docs/`) hold durable knowledge. `agent/` is strictly for agent-internal ephemeral scratch/work artifacts.
 
-## Phase State (updated 2026-09-30)
-- **Discovery complete.** `docs/findings.md` v2.1 (commit `0b2df33`) is signed off by Judith; all evidence committed (worker reports, handoffs, plans). Re-entry: read `REQUIREMENTS.md` (R-1..R-10 verbatim) + `docs/findings.md`.
-- **User decisions approved in continuation:** distinct `subagent_*` names; Escape for interruption and pane close for termination; initial bash runtime reuse; live-skill patch plus regression test and isolated live verification. Patch not yet performed. Plan 2 still needs peer review and user agreement.
-- **Settled design constraints (do not re-litigate):** task delivery via `herdr agent prompt` post-detection, never positional payload at launch (pi 0.99.1 `--dm-read` swallows inline briefs in readonly mode — §3.1); terminal-state waits must race `idle`+`done`; any seq-gated wait needs delivery proof (caveat 12); worker launch must load `herdr-agent-state.ts`; R-10 footer via `ctx.ui.setStatus`.
+## Phase state (2026-10-02)
+- First-version functional gates R-1..R-10 independently verified; current evidence/limits: docs/live_verification.md and docs/acceptance.md. Unit passage alone is not acceptance; cite timestamped observations, never a permanent count.
+- Current validated host: Pi1.0.0, Herdr0.9.3, Node22.23.3, TypeBox1.3.27. Initial registration/footer controls were recorded on Pi0.99.1. Host SDK/pi-ai/TypeBox are wildcard peers; exact local dev pins follow the validated host.
+- Settled: distinct subagent_* names; Escape interrupts, close terminates; unchanged installed runtime, no positional tasks, prompt only after managed detection; terminal waits include idle+done+blocked, delivery/identity/working evidence gates; footer via ctx.ui.setStatus.
+- Console tails are code-point snapshot suffixes, not assistant answers. Active alternate-screen history uses visible only on typed agent_not_idle; real other read errors remain visible. Finish/fastbounded tails and unexpected_wait_state safety guards are regression-verified.
+- Readonly guard covers dot with no report-path carve-out: terminal-only evidence; editable artifacts inside worker cwd.
+- All verifier-owned workers/managers/workspaces independently absent. Historical pane handles are never reusable; no buddy/user pane was controlled.
 
-## Current Risks & Open Loops
-- **Live skill bug (authorized patch pending):** readonly + `--brief` launches in `pi-worker-runtime.sh` silently lose the task (pi 0.99.1 parses `--dm-read` as unknown flag and swallows the next positional). Fix candidate `--dm-read=1` is parseArgs-verified, not yet launch-tested.
-- Tool-name collision with pi-herdr if both extensions load (unknown until tested).
-- Multi-line `pane send-text` behaviour undetermined (minor, R-5).
-- `--dm-read` parser behaviour is pinned to pi 0.99.1; re-verify on Pi updates.
+## Declared limits / follow-up
+- Installed readonly inline-brief parser quirk persists on0.99.1/1.0.0; extension avoids it via post-detection prompt, installed scripts remain untouched.
+- Multiline send deliberately rejected. Genuine pi-herdr unavailable; conditional co-loading unexecuted, never claimed collision-free.
+- Selected Qwen model can loop or suffer upstream errors. A separate348-call pwd loop timed out honestly and was inspected/Escape-recovered; passing20turn batch is functional, not a statistical guarantee.
+- Current SDK shrinkwrap pins brace-expansion5.0.9 (one high vulnerable package, three DoS advisories). Explicit Firstmate acceptance/reassessment/upgrade trigger in docs/security.md; no clean audit/suppression/override claim.
+
+## Technical decision authority (user clarification)
+The user owns requirements and delegates technical design, implementation and acceptance to the Firstmate, supported by equal-level buddy discussion, bounded workers and independent verification. The earlier human Plan 2 approval gate is superseded; do not ask the user to approve architecture. Escalate only actual requirements/scope/authorization blockers.
+
+## Scope correction — repository-only extension
+User explicitly forbids changes to the installed supervisor skill scripts. External live-skill patch/regression is removed from scope, superseding earlier authorization and plan gates. Reuse the installed worker runtime unchanged with no positional task; deliver through agent prompt after detection. Implement and test all extension changes in this repository.

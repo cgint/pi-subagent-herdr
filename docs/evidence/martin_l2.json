@@ -1,0 +1,193 @@
+{
+  "status": "STOPPED_AFTER_EVIDENCE",
+  "reason": "local session-JSONL matcher failed after the probe had already delivered the task and recorded assistant/toolResult evidence",
+  "controller_workspace": "w18",
+  "scratch_workspace": "w1A",
+  "root_pane": {
+    "pane_id": "w1A:p1",
+    "terminal_id": "term_65cb8f20f08143c",
+    "workspace_id": "w1A"
+  },
+  "worker_pane": "w1A:p2",
+  "receipt": {
+    "code": "agent_prompted",
+    "outcome": "submitted",
+    "pane": "w1A:p2"
+  },
+  "session_path": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr--/2026-09-30T20-14-27-509Z_01a0f3f4-46b5-706f-afeb-1b694ccfdc44.jsonl",
+  "task": "Use exactly one tool call: run `pwd`. Then reply with two lines only: 1) the exact pwd output 2) READY",
+  "role_segment_hash": "af8c3c20bbdb055f7525e785bb5b390d4b34c62ede74291837d42b5626495d21",
+  "role_segment": [
+    {
+      "role": "user",
+      "content": "Use exactly one tool call: run `pwd`. Then reply with two lines only: 1) the exact pwd output 2) READY"
+    },
+    {
+      "role": "assistant",
+      "toolCall": {
+        "name": "bash",
+        "arguments": {
+          "command": "pwd",
+          "intent": "Report current working directory"
+        }
+      }
+    },
+    {
+      "role": "toolResult",
+      "toolName": "bash",
+      "content": "/Users/cgint/dev-external/pi-subagent-herdr/"
+    },
+    {
+      "role": "assistant",
+      "content": "1) /Users/cgint/dev-external/pi-subagent-herdr\n2) READY"
+    }
+  ],
+  "cleanup": {
+    "worker_pane_absent": true,
+    "workspace_absent": true,
+    "verified_by": [
+      "herdr pane get w1A:p2 -> pane_not_found",
+      "herdr workspace get w1A -> workspace_not_found"
+    ]
+  },
+  "notes": [
+    "All mutating CLI calls in the probe went through the allowlist-checked transport adapter.",
+    "Synthetic outside target refusal was exercised against a fabricated pane id before any real mutating call to that id.",
+    "The probe script failed at its own JSONL matcher; the live session evidence itself was present."
+  ],
+  "task_original": "Use exactly one tool call: run `pwd`.\nThen reply with two lines only:\n1) the exact pwd output\n2) READY",
+  "original_records": [
+    {
+      "type": "message",
+      "id": "e71b4b0e",
+      "parentId": "7e71d3e1",
+      "timestamp": "2026-09-30T20:14:29.486Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Use exactly one tool call: run `pwd`.\nThen reply with two lines only:\n1) the exact pwd output\n2) READY"
+          }
+        ],
+        "timestamp": 1790799269484
+      }
+    },
+    {
+      "type": "message",
+      "id": "ca32bc05",
+      "parentId": "e71b4b0e",
+      "timestamp": "2026-09-30T20:14:30.552Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "toolCall",
+            "id": "call_552cb34b69724e92b11ff124",
+            "name": "bash",
+            "arguments": {
+              "command": "pwd",
+              "intent": "Report current working directory"
+            }
+          }
+        ],
+        "api": "openai-completions",
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+        "usage": {
+          "input": 6661,
+          "output": 41,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 6702,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "stopReason": "toolUse",
+        "timestamp": 1790799269491,
+        "responseId": "60c5dbbd1883446ba2d53390bcfdb374",
+        "rawStopReason": "tool_calls",
+        "thinkingLevel": "off"
+      }
+    },
+    {
+      "type": "message",
+      "id": "ac10d3a9",
+      "parentId": "ca32bc05",
+      "timestamp": "2026-09-30T20:14:30.558Z",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "call_552cb34b69724e92b11ff124",
+        "toolName": "bash",
+        "content": [
+          {
+            "type": "text",
+            "text": "/Users/cgint/dev-external/pi-subagent-herdr\n"
+          }
+        ],
+        "isError": false,
+        "timestamp": 1790799270558
+      }
+    },
+    {
+      "type": "message",
+      "id": "1f4bad2a",
+      "parentId": "ac10d3a9",
+      "timestamp": "2026-09-30T20:14:31.612Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "1) /Users/cgint/dev-external/pi-subagent-herdr\n2) READY"
+          }
+        ],
+        "api": "openai-completions",
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct",
+        "usage": {
+          "input": 6732,
+          "output": 21,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "totalTokens": 6753,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "stopReason": "stop",
+        "timestamp": 1790799270559,
+        "responseId": "f33de2fdc2564a19804df83aa4d31b55",
+        "rawStopReason": "stop",
+        "thinkingLevel": "off"
+      }
+    }
+  ],
+  "source_sha256": "747791d32d1cb77e9210be938a371dcd0ff5e49a169ef970891f84a18472a39d",
+  "actual_worker_model": {
+    "provider": "home-llm",
+    "modelId": "qwen3.8-27b-nvfp4-dflash2-direct"
+  },
+  "lead_review": {
+    "accepted_scope": "readonly production start/delivery and genuine pwd tool execution after delivered user message",
+    "not_proven": [
+      "bounded wait result record",
+      "core close success",
+      "registered-tool lifecycle",
+      "reliability"
+    ],
+    "cleanup": "scratch absence independently verified by Felix; raw cleanup is not R-9 core-close proof",
+    "matcher_failure": "JSON serialization escapes newlines; comparing serialized record to a multiline plain-text substring misses delivered message. Original user text and successful bash result independently verified."
+  }
+}
