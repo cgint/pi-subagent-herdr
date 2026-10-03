@@ -1,13 +1,10 @@
-// Node:test suite for src/index.ts (Pi registration layer).
+// Node:test suite for src/index.ts (Pi registration layer, 0.2.0 contract).
 //
-// Covers: registration count/names/schemas, result mapping (isError,
-// structuredContent, codepoint tails), footer inside/outside herdr panes,
-// session persistence isolation (same-pane new/fork must not inherit;
-// same-session reload restores), explicit external-close confirmation and
-// no-UI denial. The fake ExtensionAPI captures actual registerTool/on/
-// registerFlag/appendEntry/getFlag calls and the tools are exercised via
-// their captured execute() callbacks against a fake SubagentService
-// injected through RegistrationDeps (no process-wide module hooks).
+// Covers: registration count/names/schemas (flat 0.2.0 parameter surface),
+// legacy-field absence from schemas, honest descriptions, annotations,
+// runtime-dir flag, session lifecycle handlers, and result mapping via
+// the captured execute() callbacks against a fake SubagentService
+// injected through RegistrationDeps.service (no process hooks).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -15,37 +12,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import registerSubagentHerdr, { resolveRuntimeDir, type RegistrationDeps } from "../src/index.js";
-import { SubagentService } from "../src/core.js";
-import type { Transport, TransportResult } from "../src/transport.js";
+import { DEFAULTS } from "../src/core.js";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
-// Core interception: a synchronous Node module hook (registerHooks) that
-// redirects the factory's `../src/core.js` import to a data-URL module built
-// from the per-test fake service. This substitutes the core without editing
-// src/core.ts (owned by another worker) and without CJS require.cache tricks
-// that don't apply to ESM output.
-//
-// The hook fires for `../src/core.js` when its parent is the factory module
-// (src/index.js). Each loadFactory() call sets a fresh fake on a stable
-// global before importing a unique index.js URL (unique query => fresh
-// evaluation, so the factory picks up the new fake).
-// ---------------------------------------------------------------------------
-
-async function loadFactory(prime: object, deps: RegistrationDeps = {}) {
-  // Import the factory (no process-wide module hooks needed; the fake
-  // service is injected via deps.service).
-  const mod = await import(`../src/index.js?fakecore=${Date.now()}-${Math.random()}`);
-  const factory = mod.default as (pi: ExtensionAPI, deps?: RegistrationDeps) => void;
-  // Return the factory pre-bound to the test's deps (env, service, etc.)
-  // so callers just invoke factory(pi).
-  const merged: RegistrationDeps = { ...deps, service: prime as RegistrationDeps["service"] };
-  const bound = (pi: ExtensionAPI) => factory(pi, merged);
-  return { factory: bound, ...mod };
-}
-
-// ---------------------------------------------------------------------------
-// Minimal SDK type stand-ins (the factory only needs the shapes it uses)
+// Captured tool / fake pi helpers
 // ---------------------------------------------------------------------------
 
 interface CapturedTool {
@@ -54,7 +25,12 @@ interface CapturedTool {
   description: string;
   parameters: unknown;
   outputSchema: unknown;
-  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
   execute: (
     toolCallId: string,
     params: Record<string, unknown>,
@@ -70,6 +46,7 @@ interface FakePiOptions {
   mode?: string;
   hasUI?: boolean;
   paneId?: string;
+  env?: NodeJS.ProcessEnv;
 }
 
 interface FakePi {
@@ -79,8 +56,8 @@ interface FakePi {
   handlers: Map<string, Array<(event: unknown, ctx: ExtensionContext) => unknown>>;
   appended: Array<{ customType: string; data: unknown }>;
   ctx: ExtensionContext;
-  setEntries(entries: Array<{ type: "custom"; customType: string; data?: unknown }>): void;
-  confirmResults: boolean[];
+  statusCalls: Array<{ key: string; text: string | undefined }>;
+  notifyCalls: Array<{ message: string; type?: string }>;
 }
 
 function makeFakePi(options: FakePiOptions = {}): FakePi {
@@ -89,10 +66,9 @@ function makeFakePi(options: FakePiOptions = {}): FakePi {
   const handlers = new Map<string, Array<(event: unknown, ctx: ExtensionContext) => unknown>>();
   const appended: Array<{ customType: string; data: unknown }> = [];
   let entries: Array<{ type: "custom"; customType: string; data?: unknown }> = options.entries ?? [];
-  const confirmResults: boolean[] = [];
   const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const notifyCalls: Array<{ message: string; type?: string }> = [];
-  let sessionId = "sess-1";
+  const sessionId = "sess-1";
   const mode = options.mode ?? "tui";
 
   const ctx: ExtensionContext = {
@@ -102,9 +78,6 @@ function makeFakePi(options: FakePiOptions = {}): FakePi {
       },
       notify(message: string, type?: "info" | "warning" | "error") {
         notifyCalls.push({ message, type });
-      },
-      async confirm(_title: string, _message: string): Promise<boolean> {
-        return confirmResults.length > 0 ? confirmResults.shift()! : true;
       },
     } as unknown as ExtensionContext["ui"],
     mode: mode as ExtensionContext["mode"],
@@ -122,8 +95,8 @@ function makeFakePi(options: FakePiOptions = {}): FakePi {
     registerTool(tool: unknown) {
       tools.push(tool as CapturedTool);
     },
-    registerFlag(name: string, options: { description?: string; type: string }) {
-      flags.set(name, options);
+    registerFlag(name: string, opts: { description?: string; type: string }) {
+      flags.set(name, opts);
     },
     on(event: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) {
       const list = handlers.get(event) ?? [];
@@ -143,56 +116,52 @@ function makeFakePi(options: FakePiOptions = {}): FakePi {
     },
   } as unknown as ExtensionAPI;
 
-  return {
-    pi,
-    tools,
-    flags,
-    handlers,
-    appended,
-    ctx,
-    setEntries(next: Array<{ type: "custom"; customType: string; data?: unknown }>) {
-      entries = next;
-    },
-    confirmResults,
-  };
+  return { pi, tools, flags, handlers, appended, ctx, statusCalls, notifyCalls };
 }
 
 // ---------------------------------------------------------------------------
-// Fake SubagentService (dependency injection: the factory reads it from
-// require.cache, so we prime the .js specifiers it imports)
+// Fake SubagentService (injected via RegistrationDeps.service)
 // ---------------------------------------------------------------------------
 
+interface FakeResult {
+  ok: boolean;
+  outcome: string;
+  phase: string;
+  pane?: string;
+  workspace?: string;
+  agent?: string;
+  status?: string;
+  seq?: number;
+  delivery?: string;
+  console?: string;
+  consoleSource?: string;
+  truncated?: boolean;
+  consoleError?: string;
+  submittedWhile?: string;
+  observation?: string;
+  code?: string;
+  hint?: string;
+  detail?: string;
+  items?: unknown[];
+  verifiedAbsent?: boolean;
+}
+
 interface FakeServiceOptions {
-  executeImpl?: (op: string, args: Record<string, unknown>, signal?: AbortSignal) => Promise<{
-    ok: boolean;
-    outcome: string;
-    phase: string;
-    pane_id?: string;
-    code?: string;
-    hint?: string;
-    detail?: string;
-    tail?: string;
-    continuation?: string;
-  }>;
+  executeImpl?: (
+    op: string,
+    args: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) => Promise<FakeResult>;
 }
 
 interface FakeService {
-  execute(op: string, args?: Record<string, unknown>, signal?: AbortSignal): Promise<{
-    ok: boolean;
-    outcome: string;
-    phase: string;
-    pane_id?: string;
-    code?: string;
-    hint?: string;
-    detail?: string;
-    tail?: string;
-    continuation?: string;
-  }>;
+  execute(op: string, args?: Record<string, unknown>, signal?: AbortSignal): Promise<FakeResult>;
   getOwned(): Array<{ pane_id: string; session?: string }>;
   restoreOwned(records: ReadonlyArray<unknown>): void;
+  _lastArgs?: Record<string, unknown>;
 }
 
-function makeFakeService(impl: FakeServiceOptions["executeImpl"]): FakeService {
+function makeFakeService(impl?: FakeServiceOptions["executeImpl"]): FakeService {
   const owned = new Map<string, Record<string, unknown>>();
   return {
     async execute(op: string, args: Record<string, unknown> = {}, signal?: AbortSignal) {
@@ -201,7 +170,7 @@ function makeFakeService(impl: FakeServiceOptions["executeImpl"]): FakeService {
         ok: true,
         outcome: "submitted",
         phase: "submission",
-        pane_id: `wF:p${op}`,
+        pane: `wF:p${op}`,
         hint: "ok",
       };
     },
@@ -232,8 +201,8 @@ function makeFakeService(impl: FakeServiceOptions["executeImpl"]): FakeService {
 
 test("registers exactly nine subagent_* tools with the agreed names", async () => {
   const fake = makeFakePi();
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
+  const svc = makeFakeService();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const names = fake.tools.map((t) => t.name);
   assert.deepEqual(names, [
     "subagent_start",
@@ -255,28 +224,87 @@ test("registers exactly nine subagent_* tools with the agreed names", async () =
   }
 });
 
-test("parameter schemas are finite and bounded where the contract requires", async () => {
+test("parameter schemas match the 0.2.0 flat contract", async () => {
   const fake = makeFakePi();
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const props = (t: CapturedTool) =>
-    Object.keys((t.parameters as { properties?: Record<string, unknown> }).properties ?? {});
-  assert.ok(props(byName.get("subagent_start")!).includes("task"));
-  assert.ok(props(byName.get("subagent_start")!).includes("name"));
-  assert.ok(props(byName.get("subagent_read")!).includes("maxChars"), "read exposes tail limit");
-  assert.ok(!props(byName.get("subagent_close")!).includes("externalConfirmed"), "close schema does not expose externalConfirmed");
-  assert.ok(!props(byName.get("subagent_close")!).includes("allowExternal"));
-  // wait exposes a continuation parameter
-  assert.ok(props(byName.get("subagent_wait")!).includes("continuation"));
+  const props = (t: CapturedTool) => Object.keys((t.parameters as { properties?: Record<string, unknown> }).properties ?? {});
+  const required = (t: CapturedTool) => ((t.parameters as { required?: string[] }).required ?? []).sort();
+
+  // start: name/task required; cwd optional; no terminalId, continuation or allowExternal
+  assert.deepEqual(props(byName.get("subagent_start")!).sort(), [
+    "cwd", "maxChars", "mode", "name", "returnLines", "task", "timeoutMs", "wait", "workspace",
+  ]);
+  assert.deepEqual(required(byName.get("subagent_start")!), ["name", "task"]);
+  assert.equal((byName.get("subagent_start")!.parameters as { properties: Record<string, unknown> }).properties.terminalId, undefined);
+  assert.equal((byName.get("subagent_start")!.parameters as { properties: Record<string, unknown> }).properties.continuation, undefined);
+
+  // prompt: pane+prompt required; legacy task/target/waitMode/continuation absent
+  assert.deepEqual(props(byName.get("subagent_prompt")!).sort(), [
+    "maxChars", "pane", "prompt", "returnLines", "source", "timeoutMs", "wait",
+  ]);
+  assert.deepEqual(required(byName.get("subagent_prompt")!), ["pane", "prompt"]);
+  assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.task, undefined);
+  assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.target, undefined);
+  assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.waitMode, undefined);
+  assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.continuation, undefined);
+
+  // wait: single timeoutMs; no boundedWaitMs, no waitMode, no continuation
+  assert.deepEqual(props(byName.get("subagent_wait")!).sort(), ["maxChars", "pane", "returnLines", "source", "timeoutMs"]);
+  assert.deepEqual(required(byName.get("subagent_wait")!), ["pane"]);
+  assert.equal((byName.get("subagent_wait")!.parameters as { properties: Record<string, unknown> }).properties.boundedWaitMs, undefined);
+  assert.equal((byName.get("subagent_wait")!.parameters as { properties: Record<string, unknown> }).properties.continuation, undefined);
+
+  // read: returnLines/maxChars/source; no lines/raw/tailChars
+  assert.deepEqual(props(byName.get("subagent_read")!).sort(), ["maxChars", "pane", "returnLines", "source"]);
+  assert.deepEqual(required(byName.get("subagent_read")!), ["pane"]);
+  const readProps = (byName.get("subagent_read")!.parameters as { properties: Record<string, unknown> }).properties;
+  assert.equal(readProps.lines, undefined);
+  assert.equal(readProps.raw, undefined);
+  assert.equal(readProps.tailChars, undefined);
+  // source: auto/agent/raw (TypeBox Union of Literals -> anyOf with const)
+  const sourceSchema = readProps.source as { anyOf?: Array<{ const?: string }> };
+  const sourceValues = (sourceSchema.anyOf ?? []).map((s) => s.const).filter(Boolean) as string[];
+  assert.deepEqual(sourceValues.sort(), ["agent", "auto", "raw"]);
+
+  // send: pane+text required; no lines
+  assert.deepEqual(props(byName.get("subagent_send")!).sort(), ["maxChars", "pane", "returnLines", "text"]);
+  assert.deepEqual(required(byName.get("subagent_send")!), ["pane", "text"]);
+
+  // close: pane only; no allowExternal/externalConfirmed
+  assert.deepEqual(props(byName.get("subagent_close")!), ["pane"]);
+  assert.deepEqual(required(byName.get("subagent_close")!), ["pane"]);
+
+  // interrupt: pane only
+  assert.deepEqual(props(byName.get("subagent_interrupt")!), ["pane"]);
+
+  // list: optional workspace
+  assert.deepEqual(props(byName.get("subagent_list")!), ["workspace"]);
+  const listWs = (byName.get("subagent_list")!.parameters as { properties: Record<string, { default?: string }> }).properties.workspace;
+  assert.equal(listWs.default, "current");
+
+  // spaces: no parameters
+  assert.deepEqual(props(byName.get("subagent_spaces")!), []);
 });
 
-test("annotations: read/list/spaces read-only; close destructive+idempotent; start open-world", async () => {
+test("output schemas include working observation but no public correlation handles", () => {
   const fake = makeFakePi();
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  for (const tool of fake.tools) {
+    const props = (tool.outputSchema as { properties: Record<string, { type?: string }> }).properties;
+    assert.equal(props.working_observed.type, "boolean");
+    assert.equal(props.continuation, undefined);
+    assert.equal(props.cursor, undefined);
+    assert.equal(props.receiptId, undefined);
+  }
+});
+
+test("annotations: read/list/wait/spaces read-only; close destructive+idempotent; start open-world", async () => {
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
   assert.equal(byName.get("subagent_read")!.annotations?.readOnlyHint, true);
+  assert.equal(byName.get("subagent_wait")!.annotations?.readOnlyHint, true);
   assert.equal(byName.get("subagent_list")!.annotations?.readOnlyHint, true);
   assert.equal(byName.get("subagent_spaces")!.annotations?.readOnlyHint, true);
   assert.equal(byName.get("subagent_close")!.annotations?.destructiveHint, true);
@@ -286,22 +314,44 @@ test("annotations: read/list/spaces read-only; close destructive+idempotent; sta
 
 test("registers the runtime-dir CLI flag (string type)", async () => {
   const fake = makeFakePi();
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   assert.ok(fake.flags.has("subagent-herdr-runtime-dir"));
   assert.equal(fake.flags.get("subagent-herdr-runtime-dir")!.type, "string");
 });
 
 test("session_start and session_shutdown handlers are registered", async () => {
   const fake = makeFakePi();
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   assert.ok(fake.handlers.has("session_start"));
   assert.ok(fake.handlers.has("session_shutdown"));
 });
 
 // ---------------------------------------------------------------------------
-// Result mapping: execute() callbacks verified, not constants
+// Tool descriptions carry the honest 0.2.0 semantics
+// ---------------------------------------------------------------------------
+
+test("descriptions: pane is the sole address; submit-only; no continuation", async () => {
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const byName = new Map(fake.tools.map((t) => [t.name, t]));
+  assert.match(byName.get("subagent_start")!.description, /pane/);
+  assert.match(byName.get("subagent_start")!.description, /submit-only|wait=false/i);
+  assert.match(byName.get("subagent_prompt")!.description, /pane/);
+  assert.match(byName.get("subagent_wait")!.description, /snapshot/);
+  assert.match(byName.get("subagent_wait")!.description, /state_changed_after_submission/);
+  assert.match(byName.get("subagent_read")!.description, /auto/);
+  assert.match(byName.get("subagent_read")!.description, /visible viewport/);
+  assert.match(byName.get("subagent_close")!.description, /verified absence/i);
+  assert.match(byName.get("subagent_close")!.description, /idempotent/i);
+  assert.match(byName.get("subagent_send")!.description, /single line/i);
+  assert.match(byName.get("subagent_send")!.description, /unverified in herdr 0\.9\.3/);
+  assert.match(byName.get("subagent_interrupt")!.description, /no guaranteed-abort claim/);
+  assert.match(byName.get("subagent_prompt")!.description, /blocked/);
+  assert.match(byName.get("subagent_prompt")!.description, /working|busy/i);
+});
+
+// ---------------------------------------------------------------------------
+// Result mapping (execute callbacks)
 // ---------------------------------------------------------------------------
 
 async function runTool(tool: CapturedTool, params: Record<string, unknown>, fake: FakePi) {
@@ -313,63 +363,76 @@ async function runTool(tool: CapturedTool, params: Record<string, unknown>, fake
   };
 }
 
-test("tool execute maps core success to isError=false + structuredContent", async () => {
-  const svc = makeFakeService(async (op) => ({
+test("tool execute maps core success to isError=false + structured pane/delivery/observation", async () => {
+  const svc = makeFakeService(async (op, args) => ({
     ok: true,
-    outcome: "submitted",
-    phase: "submission",
-    pane_id: "wF:p2",
-    code: "prompt.sent",
-    hint: "receipt",
+    outcome: "terminal_observed",
+    phase: "wait",
+    pane: "wF:p2",
+    status: "done",
+    delivery: "acknowledged",
+    observation: "state_changed_after_submission",
+    console: "worker output 🧵",
+    consoleSource: "agent",
+    truncated: false,
+    code: "done",
+    hint: "ok",
   }));
   const fake = makeFakePi();
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_prompt")!, { target: "wF:p2", task: "hi" }, fake);
+  const r = await runTool(byName.get("subagent_prompt")!, { pane: "wF:p2", prompt: "hi", wait: true }, fake);
   assert.equal(r.isError, false);
   assert.equal(r.structuredContent.ok, true);
-  assert.equal(r.structuredContent.outcome, "submitted");
-  assert.equal(r.structuredContent.pane_id, "wF:p2");
-  assert.equal(r.structuredContent.code, "prompt.sent");
-  assert.match(r.content[0].text, /submitted \(phase: submission\)/);
+  assert.equal(r.structuredContent.outcome, "terminal_observed");
+  assert.equal(r.structuredContent.pane, "wF:p2");
+  assert.equal(r.structuredContent.status, "done");
+  assert.equal(r.structuredContent.delivery, "acknowledged");
+  assert.equal(r.structuredContent.observation, "state_changed_after_submission");
+  assert.equal(r.structuredContent.console, "worker output 🧵");
+  assert.equal(r.structuredContent.consoleSource, "agent");
+  assert.match(r.content[0].text, /terminal_observed \(phase: wait\)/);
+  assert.match(r.content[0].text, /worker output 🧵/);
 });
 
 test("tool execute maps core failure to isError=true with structured code", async () => {
   const svc = makeFakeService(async () => ({
     ok: false,
     outcome: "denied",
-    phase: "ownership",
-    code: "external_target",
-    pane_id: "wF:p9",
-    hint: "opt-in required",
+    phase: "validation",
+    code: "self_control",
+    pane: "wF:p1",
+    hint: "self-control denied",
   }));
   const fake = makeFakePi();
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_send")!, { target: "wF:p9", text: "ls" }, fake);
+  const r = await runTool(byName.get("subagent_send")!, { pane: "wF:p1", text: "ls" }, fake);
   assert.equal(r.isError, true);
-  assert.equal(r.structuredContent.code, "external_target");
+  assert.equal(r.structuredContent.code, "self_control");
   assert.equal(r.structuredContent.outcome, "denied");
-  assert.match(r.content[0].text, /denied \(phase: ownership\)/);
+  assert.match(r.content[0].text, /denied \(phase: validation\)/);
 });
 
-test("tail code points are surfaced verbatim (unicode tail)", async () => {
-  // 6 emoji = 6 code points; the tail must survive intact.
+test("tool execute: console failure is a separate field (consoleError), action result intact", async () => {
   const svc = makeFakeService(async () => ({
     ok: true,
-    outcome: "read",
-    phase: "read",
-    tail: "🧵".repeat(6),
+    outcome: "terminal_observed",
+    phase: "wait",
+    pane: "wF:p9",
+    status: "done",
+    delivery: "acknowledged",
+    consoleError: "console read failed (server_not_running): no server",
+    code: "done",
   }));
   const fake = makeFakePi();
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_read")!, { target: "wF:p2" }, fake);
-  assert.equal([...String(r.structuredContent.tail)].length, 6, "tail counts code points");
-  assert.ok(r.content[0].text.includes("🧵🧵🧵🧵🧵🧵"));
+  const r = await runTool(byName.get("subagent_prompt")!, { pane: "wF:p9", prompt: "hi", wait: true }, fake);
+  assert.equal(r.isError, false, "action outcome survives console failure");
+  assert.equal(r.structuredContent.outcome, "terminal_observed");
+  assert.equal(r.structuredContent.console, undefined, "no console content on failure");
+  assert.match(String(r.structuredContent.consoleError), /server_not_running/);
 });
 
 test("core exceptions are caught and mapped to a structured internal error", async () => {
@@ -377,8 +440,7 @@ test("core exceptions are caught and mapped to a structured internal error", asy
     throw new Error("boom");
   });
   const fake = makeFakePi();
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
   const r = await runTool(byName.get("subagent_list")!, {}, fake);
   assert.equal(r.isError, true);
@@ -386,517 +448,161 @@ test("core exceptions are caught and mapped to a structured internal error", asy
   assert.match(String(r.structuredContent.detail), /boom/);
 });
 
-// ---------------------------------------------------------------------------
-// Footer (R-10): inside vs outside a herdr pane, TUI only
-// ---------------------------------------------------------------------------
-
-function captureStatus(ctx: ExtensionContext): Array<{ key: string; text: string | undefined }> {
-  const calls: Array<{ key: string; text: string | undefined }> = [];
-  const orig = ctx.ui.setStatus;
-  ctx.ui.setStatus = (key: string, text: string | undefined) => {
-    calls.push({ key, text });
-    orig.call(ctx.ui, key, text);
-  };
-  return calls;
-}
-
-test("footer: status set with pane id when TUI inside herdr pane", async () => {
-  const fake = makeFakePi({ mode: "tui" });
-  const env = { HERDR_PANE_ID: "wP:p7" } as NodeJS.ProcessEnv;
-  const calls = captureStatus(fake.ctx);
-  const { factory } = await loadFactory(makeFakeService(undefined), { env });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.deepEqual(calls, [{ key: "pi-subagent-herdr", text: "herdr pane wP:p7" }]);
+test("deprecated allowExternal/externalConfirmed are stripped before core dispatch", async () => {
+  let captured: Record<string, unknown> | undefined;
+  const svc = makeFakeService(async (op, args) => {
+    captured = args;
+    return { ok: true, outcome: "closed", phase: "close", pane: "wF:p9", verifiedAbsent: true };
+  });
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const byName = new Map(fake.tools.map((t) => [t.name, t]));
+  await runTool(byName.get("subagent_close")!, { pane: "wF:p9", allowExternal: true, externalConfirmed: true }, fake);
+  assert.ok(captured);
+  assert.equal(captured!.allowExternal, undefined, "allowExternal stripped");
+  assert.equal(captured!.externalConfirmed, undefined, "externalConfirmed stripped");
+  assert.equal(captured!.pane, "wF:p9");
 });
 
-test("footer: cleared (undefined) when HERDR_PANE_ID is absent", async () => {
+// ---------------------------------------------------------------------------
+// Footer (R-10): TUI + HERDR_PANE_ID only
+// ---------------------------------------------------------------------------
+
+test("footer: TUI inside a herdr pane sets the status line", async () => {
   const fake = makeFakePi({ mode: "tui" });
-  const env = {} as NodeJS.ProcessEnv;
-  const calls = captureStatus(fake.ctx);
-  const { factory } = await loadFactory(makeFakeService(undefined), { env });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.deepEqual(calls, [{ key: "pi-subagent-herdr", text: undefined }]);
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "w2V:p1" } });
+  // Fire the session_start handler.
+  const handlers = fake.handlers.get("session_start")!;
+  for (const h of handlers) h(undefined, fake.ctx);
+  const statusLine = fake.statusCalls.find((s) => s.key === "pi-subagent-herdr" && typeof s.text === "string");
+  assert.ok(statusLine, "status line set on session_start");
+  assert.match(statusLine!.text!, /w2V:p1/);
 });
 
-test("footer: not set in non-TUI mode even with HERDR_PANE_ID", async () => {
+test("footer: non-TUI mode does not set the status line", async () => {
   const fake = makeFakePi({ mode: "rpc" });
-  const env = { HERDR_PANE_ID: "wP:p7" } as NodeJS.ProcessEnv;
-  const calls = captureStatus(fake.ctx);
-  const { factory } = await loadFactory(makeFakeService(undefined), { env });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.deepEqual(calls, [], "no setStatus outside TUI");
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "w2V:p1" } });
+  const handlers = fake.handlers.get("session_start")!;
+  for (const h of handlers) h(undefined, fake.ctx);
+  const statusLine = fake.statusCalls.find((s) => s.key === "pi-subagent-herdr" && typeof s.text === "string");
+  assert.equal(statusLine, undefined, "no status line outside TUI");
+});
+
+test("footer: TUI without HERDR_PANE_ID does not set the status line", async () => {
+  const fake = makeFakePi({ mode: "tui" });
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: {} });
+  const handlers = fake.handlers.get("session_start")!;
+  for (const h of handlers) h(undefined, fake.ctx);
+  const statusLine = fake.statusCalls.find((s) => s.key === "pi-subagent-herdr" && typeof s.text === "string");
+  assert.equal(statusLine, undefined, "no status line without HERDR_PANE_ID");
 });
 
 // ---------------------------------------------------------------------------
-// Session persistence: isolation (new/fork) and same-session restore
+// Ownership persistence: session isolation
 // ---------------------------------------------------------------------------
 
-test("persistence: same-session reload restores owned panes", async () => {
-  const svc = makeFakeService(undefined);
-  const records = [
+test("ownership: foreign-session records are not inherited", async () => {
+  const entries = [
     {
-      pane_id: "wF:p2",
-      workspace_id: "wF",
-      terminal_id: "term_1",
-      name: "otto",
-      launched_at: 1,
-      session: "sess-1", // matches the fake sessionManager.getSessionId()
+      type: "custom" as const,
+      customType: "pi-subagent-herdr-ownership-v1",
+      data: {
+        sessionId: "other-session",
+        records: [{ pane_id: "wF:p9", workspace_id: "wF", session: "other-session" }],
+      },
     },
   ];
-  const fake = makeFakePi({
-    entries: [
-      { type: "custom", customType: "pi-subagent-herdr-ownership-v1", data: { sessionId: "sess-1", records } },
-    ],
-  });
-  const { factory } = await loadFactory(svc, { env: { HERDR_PANE_ID: "wF:p1" } as NodeJS.ProcessEnv });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.equal(svc.getOwned().length, 1, "restored from branch entries");
-  assert.equal((svc.getOwned()[0] as { pane_id: string }).pane_id, "wF:p2");
+  const fake = makeFakePi({ entries });
+  const svc = makeFakeService();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const handlers = fake.handlers.get("session_start")!;
+  for (const h of handlers) h(undefined, fake.ctx);
+  assert.equal(svc.getOwned().length, 0, "foreign-session ownership not restored");
 });
 
-test("persistence: foreign-session records are filtered out (fork/new isolation)", async () => {
-  const svc = makeFakeService(undefined);
-  const foreign = [
+test("ownership: same-session records are restored on session_start", async () => {
+  const entries = [
     {
-      pane_id: "wF:p2",
-      workspace_id: "wF",
-      name: "stray",
-      session: "sess-OTHER", // different Pi session ID
+      type: "custom" as const,
+      customType: "pi-subagent-herdr-ownership-v1",
+      data: {
+        sessionId: "sess-1",
+        records: [{ pane_id: "wF:p9", workspace_id: "wF", session: "sess-1" }],
+      },
     },
   ];
-  const fake = makeFakePi({
-    entries: [
-      { type: "custom", customType: "pi-subagent-herdr-ownership-v1", data: { sessionId: "sess-OTHER", records: foreign } },
-    ],
-  });
-  const { factory } = await loadFactory(svc, { env: { HERDR_PANE_ID: "wF:p1" } as NodeJS.ProcessEnv });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.equal(svc.getOwned().length, 0, "records from another Pi session are not inherited");
+  const fake = makeFakePi({ entries });
+  const svc = makeFakeService();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const handlers = fake.handlers.get("session_start")!;
+  for (const h of handlers) h(undefined, fake.ctx);
+  assert.equal(svc.getOwned().length, 1, "same-session ownership restored");
+  assert.equal(svc.getOwned()[0].pane_id, "wF:p9");
 });
 
-test("persistence: same-pane new session does not inherit (two sessions, same HERDR pane)", async () => {
-  // Two Pi sessions in the same HERDR pane must not inherit each other's control.
-  const svc = makeFakeService(undefined);
-  const records = [
-    {
-      pane_id: "wF:p2",
-      workspace_id: "wF",
-      name: "worker",
-      session: "sess-A", // owned by a different Pi session in the same pane
-    },
-  ];
-  const fake = makeFakePi({
-    entries: [
-      { type: "custom", customType: "pi-subagent-herdr-ownership-v1", data: { sessionId: "sess-A", records } },
-    ],
-  });
-  // The fake sessionManager returns "sess-1" (a different session ID).
-  const { factory } = await loadFactory(svc, { env: { HERDR_PANE_ID: "wF:p1" } as NodeJS.ProcessEnv });
-  factory(fake.pi);
-  for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-  assert.equal(svc.getOwned().length, 0, "same-pane different-session records are filtered");
-});
-
-test("persistence: start with a new owned pane appends an ownership entry", async () => {
-  let recorded: unknown[] = [];
-  const svc = makeFakeService(async (op) => {
+test("ownership: start persists via appendEntry with the session id", async () => {
+  const svc = makeFakeService(async (op, args) => {
     if (op === "start") {
-      recorded = [{ pane_id: "wF:p5", workspace_id: "wF", name: "nova", session: "wF:p1" }];
-      return { ok: true, outcome: "submitted", phase: "submission", pane_id: "wF:p5" };
+      (svc as unknown as { _owned: Map<string, unknown> })._owned?.set("wF:p2", { pane_id: "wF:p2", workspace_id: "wF" });
+      return { ok: true, outcome: "submitted", phase: "submission", pane: "wF:p2" };
     }
-    return { ok: true, outcome: "listed", phase: "list" };
+    return { ok: true, outcome: "ok", phase: "ok" };
   });
-  // Make getOwned return the recorded panes after start.
-  (svc as unknown as { getOwned(): unknown[] }).getOwned = () =>
-    (recorded as Array<Record<string, unknown>>).map((r) => ({ ...r }));
+  // The fake service's getOwned must reflect the start.
+  const ownedMap = new Map<string, Record<string, unknown>>();
+  (svc as unknown as { _owned: Map<string, unknown> })._owned = ownedMap;
+  (svc as unknown as { getOwned(): Array<{ pane_id: string; session?: string }> }).getOwned = () =>
+    [...ownedMap.values()].map((r) => ({ pane_id: String(r.pane_id), workspace_id: String(r.workspace_id) }));
   const fake = makeFakePi();
-  const { factory } = await loadFactory(svc, { env: { HERDR_PANE_ID: "wF:p1" } as NodeJS.ProcessEnv });
-  factory(fake.pi);
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
   const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  await runTool(byName.get("subagent_start")!, { name: "nova", task: "t", cwd: "/tmp" }, fake);
-  assert.equal(fake.appended.length, 1, "ownership persisted once after start");
-  assert.equal(fake.appended[0].customType, "pi-subagent-herdr-ownership-v1");
-  const data = fake.appended[0].data as { sessionId: string; records: unknown[] };
-  assert.equal(data.sessionId, "sess-1", "session ID persisted explicitly");
-  assert.equal(data.records.length, 1);
+  await runTool(byName.get("subagent_start")!, { name: "a", cwd: "/tmp", task: "t" }, fake);
+  assert.equal(fake.appended.length, 1, "ownership persisted after start");
+  const entry = fake.appended[0];
+  assert.equal(entry.customType, "pi-subagent-herdr-ownership-v1");
+  const data = entry.data as { sessionId: string; records: Array<{ pane_id: string; session: string }> };
+  assert.equal(data.sessionId, "sess-1");
+  assert.equal(data.records[0].pane_id, "wF:p2");
+  assert.equal(data.records[0].session, "sess-1");
 });
 
 // ---------------------------------------------------------------------------
-// External close: UI confirmation, denial, and no-UI denial
+// resolveRuntimeDir
 // ---------------------------------------------------------------------------
 
-test("close external pane: unconfirmed deny triggers real UI confirm; confirmed close executes once", async () => {
-  let closeCalls = 0;
-  const svc = makeFakeService(async (op, args) => {
-    if (op === "close") {
-      closeCalls += 1;
-      if (args.externalConfirmed === true) {
-        return { ok: true, outcome: "closed", phase: "close", pane_id: "wF:p77", hint: "closed" };
-      }
-      return {
-        ok: false,
-        outcome: "denied",
-        phase: "ownership",
-        code: "external_target",
-        pane_id: "wF:p77",
-        hint: "opt-in required",
-      };
-    }
-    return { ok: true, outcome: "ok", phase: "op" };
-  });
-  const fake = makeFakePi();
-  fake.confirmResults.push(true);
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
-  const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(
-    byName.get("subagent_close")!,
-    { target: "wF:p77", externalConfirmed: true }, // model tries to shortcut
-    fake,
-  );
-  assert.equal(r.isError, false);
-  assert.equal(r.structuredContent.outcome, "closed");
-  assert.equal(closeCalls, 2, "first unconfirmed attempt (core deny) + one confirmed execution");
-  assert.match(r.content[0].text, /confirmed via UI; close executed/);
+test("resolveRuntimeDir: explicit flag wins over env and profile", () => {
+  const dir = resolveRuntimeDir("/explicit/path", { PI_SUBAGENT_RUNTIME_DIR: "/env/path" }, "/home/user");
+  assert.equal(dir, "/explicit/path");
 });
 
-test("close external pane: UI decline -> denied, core executes close exactly zero confirmed times", async () => {
-  let confirmedCalls = 0;
-  const svc = makeFakeService(async (op, args) => {
-    if (op === "close" && args.externalConfirmed === true) confirmedCalls += 1;
-    if (op === "close") {
-      return {
-        ok: false,
-        outcome: "denied",
-        phase: "ownership",
-        code: "external_target",
-        pane_id: "wF:p77",
-      };
-    }
-    return { ok: true, outcome: "ok", phase: "op" };
-  });
-  const fake = makeFakePi();
-  fake.confirmResults.push(false);
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
-  const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_close")!, { target: "wF:p77" }, fake);
-  assert.equal(r.isError, true);
-  assert.equal(r.structuredContent.code, "user_declined");
-  assert.equal(confirmedCalls, 0, "no close executed after decline");
-  assert.match(r.content[0].text, /declined via UI/);
+test("resolveRuntimeDir: env wins over profile discovery", () => {
+  const dir = resolveRuntimeDir(undefined, { PI_SUBAGENT_RUNTIME_DIR: "/env/path" }, "/home/user");
+  assert.equal(dir, "/env/path");
 });
 
-test("close external pane: no UI available -> denied with no_ui_available", async () => {
-  const svc = makeFakeService(async (op) => {
-    if (op === "close") {
-      return {
-        ok: false,
-        outcome: "denied",
-        phase: "ownership",
-        code: "external_target",
-        pane_id: "wF:p77",
-      };
-    }
-    return { ok: true, outcome: "ok", phase: "op" };
-  });
-  const fake = makeFakePi({ hasUI: false, mode: "json" });
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
-  const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_close")!, { target: "wF:p77" }, fake);
-  assert.equal(r.isError, true);
-  assert.equal(r.structuredContent.code, "no_ui_available");
-  assert.equal(r.structuredContent.outcome, "denied");
-});
-
-test("close owned pane: no UI involvement, core result passes through", async () => {
-  const svc = makeFakeService(async (op) => {
-    if (op === "close") return { ok: true, outcome: "closed", phase: "close", pane_id: "wF:p2" };
-    return { ok: true, outcome: "ok", phase: "op" };
-  });
-  const fake = makeFakePi();
-  fake.confirmResults.push(false);
-  const { factory } = await loadFactory(svc);
-  factory(fake.pi);
-  const byName = new Map(fake.tools.map((t) => [t.name, t]));
-  const r = await runTool(byName.get("subagent_close")!, { target: "wF:p2" }, fake);
-  assert.equal(r.isError, false);
-  assert.equal(r.structuredContent.outcome, "closed");
-  assert.equal(fake.confirmResults.length, 1, "confirm was never called for an owned pane");
+test("resolveRuntimeDir: no flag, no env, no profiles -> undefined", () => {
+  const dir = resolveRuntimeDir(undefined, {}, "/home/no-profiles-here-xyz");
+  assert.equal(dir, undefined);
 });
 
 // ---------------------------------------------------------------------------
-// Runtime dir resolution precedence
+// Defaults (0.2.0 contract)
 // ---------------------------------------------------------------------------
 
-test("resolveRuntimeDir: flag beats env beats profile discovery", () => {
-  const fakeHome = "/tmp/fakehome";
-  assert.equal(resolveRuntimeDir("/x/flag-dir", { A: "1" }, fakeHome), "/x/flag-dir");
-  assert.equal(resolveRuntimeDir(undefined, { PI_SUBAGENT_RUNTIME_DIR: "/x/env-dir" }, fakeHome), "/x/env-dir");
-  assert.equal(resolveRuntimeDir("  ", { PI_SUBAGENT_RUNTIME_DIR: "" }, fakeHome), undefined, "blank flag/env fall through");
+test("defaults: match the 0.2.0 contract", () => {
+  assert.equal(DEFAULTS.detectionMs, 15_000);
+  assert.equal(DEFAULTS.waitMs, 30 * 60_000);
+  assert.equal(DEFAULTS.maxWaitMs, 60 * 60_000);
+  assert.equal(DEFAULTS.consoleLines, 100);
+  assert.equal(DEFAULTS.consoleChars, 8_000);
+  assert.equal(DEFAULTS.maxConsoleLines, 500);
+  assert.equal(DEFAULTS.maxConsoleChars, 50_000);
 });
 
-test("runtime flag value is passed to the factory via getFlag", async () => {
-  const fake = makeFakePi({ flag: "/x/flag-dir" });
-  const { factory } = await loadFactory(makeFakeService(undefined));
-  factory(fake.pi);
-  // The flag is registered with the agreed name; its value feeds resolveRuntimeDir.
-  assert.ok(fake.flags.has("subagent-herdr-runtime-dir"));
-});
-
-// ---------------------------------------------------------------------------
-// Integration: real SubagentService with fake transport (no process-wide hooks)
-// ---------------------------------------------------------------------------
-
-/**
- * Build a fake transport that records calls and returns canned results.
- * The canned results must match the herdr CLI JSON shapes the core expects.
- */
-function makeFakeTransport(results: Array<{ args: string[]; result: TransportResult }>): {
-  transport: Transport;
-  calls: string[][];
-} {
-  const calls: string[][] = [];
-  let idx = 0;
-  const transport: Transport = {
-    async run(args: string[]): Promise<TransportResult> {
-      calls.push(args);
-      if (idx < results.length) {
-        const match = results[idx];
-        idx++;
-        // Return the canned result; the args are recorded for assertions.
-        return match.result;
-      }
-      // Fallback: return an empty success.
-      return { exitCode: 0, stdout: "{}", stderr: "" };
-    },
-  };
-  return { transport, calls };
-}
-
-/**
- * A fake ExtensionAPI whose getFlag throws for unregistered flags (strict SDK
- * behaviour) and returns the registered value otherwise.
- */
-function makeStrictPi(): { pi: ExtensionAPI; flags: Map<string, string>; tools: CapturedTool[]; handlers: Map<string, Array<(event: unknown, ctx: ExtensionContext) => unknown>>; appended: Array<{ customType: string; data: unknown }>; ctx: ExtensionContext } {
-  const flags = new Map<string, string>();
-  const tools: CapturedTool[] = [];
-  const handlers = new Map<string, Array<(event: unknown, ctx: ExtensionContext) => unknown>>();
-  const appended: Array<{ customType: string; data: unknown }> = [];
-  let sessionId = "sess-strict-1";
-  const entries: Array<{ type: string; customType?: string; data?: unknown }> = [];
-
-  const ctx: ExtensionContext = {
-    ui: {
-      setStatus() {},
-      notify() {},
-      async confirm() { return true; },
-    } as unknown as ExtensionContext["ui"],
-    mode: "tui" as ExtensionContext["mode"],
-    hasUI: true,
-    cwd: "/tmp",
-    signal: undefined,
-    sessionManager: {
-      getSessionId: () => sessionId,
-      getBranch: () => entries as unknown as ReturnType<ExtensionContext["sessionManager"]["getBranch"]>,
-      getEntries: () => entries as unknown as ReturnType<ExtensionContext["sessionManager"]["getEntries"]>,
-    } as unknown as ExtensionContext["sessionManager"],
-  } as unknown as ExtensionContext;
-  // Expose entries for test seeding.
-  (ctx as any).__entries = entries;
-
-  const pi = {
-    registerTool(tool: unknown) { tools.push(tool as CapturedTool); },
-    registerFlag(name: string, _opts: unknown) { flags.set(name, ""); },
-    getFlag(name: string): unknown {
-      if (!flags.has(name)) throw new Error(`flag not registered: ${name}`);
-      return flags.get(name);
-    },
-    on(event: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) {
-      const arr = handlers.get(event) ?? [];
-      arr.push(handler);
-      handlers.set(event, arr);
-    },
-    appendEntry<T>(customType: string, data: T) {
-      appended.push({ customType, data });
-      entries.push({ type: "custom", customType, data });
-    },
-    events: {} as ExtensionAPI["events"],
-  } as unknown as ExtensionAPI;
-
-  return { pi, flags, tools, handlers, appended, ctx };
-}
-
-test("integration: real SubagentService start → persist → same-session restore", async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-test-"));
-  fs.writeFileSync(path.join(tmpDir, "herdr-worker.sh"), "#!/bin/sh\necho fake\n", { mode: 0o755 });
-
-  try {
-    // Advancing monotonic clock: starts at 0, +100ms per call.
-    let clock = 0;
-    const now = () => (clock += 100);
-
-    const calls: string[][] = [];
-    const responses: Array<{ match: (a: string[]) => boolean; result: TransportResult }> = [
-      {
-        match: (a) => a[0] === "pane" && a[1] === "get",
-        result: { exitCode: 0, stdout: JSON.stringify({ result: { type: "pane_info", pane: { pane_id: "wI:p1", workspace_id: "wI" } } }), stderr: "" },
-      },
-      {
-        match: (a) => a[0] === "pane" && a[1] === "split",
-        result: { exitCode: 0, stdout: JSON.stringify({ result: { type: "pane_info", pane: { pane_id: "wI:p2", workspace_id: "wI", terminal_id: "term_i1", name: "unnamed" } } }), stderr: "" },
-      },
-      {
-        match: (a) => a[0] === "pane" && a[1] === "run",
-        result: { exitCode: 0, stdout: "", stderr: "" },
-      },
-      {
-        match: (a) => a[0] === "agent" && a[1] === "get",
-        result: { exitCode: 0, stdout: JSON.stringify({ result: { type: "agent_info", agent: { agent: "pi", agent_session: { agent: "pi", kind: "path", source: "herdr:pi", value: "/fake/worker.jsonl" }, pane_id: "wI:p2", workspace_id: "wI", terminal_id: "term_i1", name: "nova", agent_status: "idle", state_change_seq: 42 } } }), stderr: "" },
-      },
-      {
-        match: (a) => a[0] === "agent" && a[1] === "rename",
-        result: { exitCode: 0, stdout: "", stderr: "" },
-      },
-      {
-        match: (a) => a[0] === "agent" && a[1] === "prompt",
-        result: { exitCode: 0, stdout: JSON.stringify({ result: { type: "agent_prompted", agent: { agent_status: "working", state_change_seq: 43 } } }), stderr: "" },
-      },
-    ];
-
-    const transport: Transport = {
-      async run(args: string[]): Promise<TransportResult> {
-        calls.push(args);
-        for (const r of responses) {
-          if (r.match(args)) return r.result;
-        }
-        throw new Error(`unexpected herdr call: ${args.join(" ")}`);
-      },
-    };
-
-    const svc = new SubagentService({
-      transport,
-      paneId: "wI:p1",
-      runtimeDir: tmpDir,
-      scriptsDir: tmpDir,
-      defaults: { detectionMs: 20000, boundedWaitMs: 200, finishWaitMs: 300, maxWaitMs: 500 },
-      now,
-    });
-
-    const fake = makeStrictPi();
-    const deps: RegistrationDeps = { env: { HERDR_PANE_ID: "wI:p1" } as NodeJS.ProcessEnv, service: svc };
-    registerSubagentHerdr(fake.pi, deps);
-
-    for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-
-    const byName = new Map(fake.tools.map((t) => [t.name, t]));
-    const startTool = byName.get("subagent_start")!;
-    const r = await startTool.execute!("tc1", { name: "nova", task: "do x", cwd: "/tmp", waitMode: "none" }, undefined, undefined, fake.ctx) as { isError: boolean; structuredContent: Record<string, unknown> };
-
-    assert.equal(r.isError, false, `start should succeed, got: ${JSON.stringify(r.structuredContent)}`);
-
-    // Ownership persisted with Pi session ID.
-    assert.ok(fake.appended.length >= 1, "ownership entry appended");
-    const entry = fake.appended.find((a) => a.customType === "pi-subagent-herdr-ownership-v1");
-    assert.ok(entry, "ownership entry found");
-    const entryData = entry.data as { sessionId: string; records: Array<{ session: string; pane_id: string }> };
-    assert.equal(entryData.sessionId, "sess-strict-1", "top-level sessionId matches");
-    assert.ok(entryData.records.length > 0, "records present");
-    assert.equal(entryData.records[0].session, "sess-strict-1", "record.session is Pi session ID");
-    assert.equal(entryData.records[0].pane_id, "wI:p2", "record.pane_id is the launched worker");
-
-    // Verify the call sequence was correct.
-    const callSummary = calls.map((c) => `${c[0]} ${c[1]}`);
-    assert.ok(callSummary.includes("pane get"), "pane get called (workspace resolution)");
-    assert.ok(callSummary.includes("pane split"), "pane split called");
-    assert.ok(callSummary.includes("agent rename"), "agent rename called (not pane rename)");
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+test("packaging: no .sub_agent_conf in the extension source", () => {
+  const files = fs.readdirSync(path.join(process.cwd(), "src"));
+  for (const f of files) {
+    const content = fs.readFileSync(path.join(process.cwd(), "src", f), "utf8");
+    assert.ok(!content.includes(".sub_agent_conf"), `${f} must not reference .sub_agent_conf`);
   }
-});
-
-test("integration: persisted branch same-session restore via new SubagentService", async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-test-"));
-  fs.writeFileSync(path.join(tmpDir, "herdr-worker.sh"), "#!/bin/sh\necho fake\n", { mode: 0o755 });
-
-  try {
-    const fake = makeStrictPi();
-    // Seed the branch with a persisted entry (same session).
-    (fake.ctx as any).__entries.push({
-      type: "custom",
-      customType: "pi-subagent-herdr-ownership-v1",
-      data: { sessionId: "sess-strict-1", records: [{ pane_id: "wI:p2", workspace_id: "wI", terminal_id: "term_i1", name: "nova", session: "sess-strict-1" }] },
-    });
-
-    const svc = new SubagentService({
-      paneId: "wI:p1",
-      runtimeDir: tmpDir,
-      scriptsDir: tmpDir,
-      now: () => 1000,
-    });
-
-    const deps: RegistrationDeps = { env: { HERDR_PANE_ID: "wI:p1" } as NodeJS.ProcessEnv, service: svc };
-    registerSubagentHerdr(fake.pi, deps);
-
-    for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-
-    const owned = svc.getOwned();
-    assert.equal(owned.length, 1, "same-session restore: 1 owned pane");
-    assert.equal(owned[0].pane_id, "wI:p2");
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test("integration: persisted branch different-session denial", async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-test-"));
-  fs.writeFileSync(path.join(tmpDir, "herdr-worker.sh"), "#!/bin/sh\necho fake\n", { mode: 0o755 });
-
-  try {
-    const fake = makeStrictPi();
-    // Seed the branch with a persisted entry from a DIFFERENT session.
-    (fake.ctx as any).__entries.push({
-      type: "custom",
-      customType: "pi-subagent-herdr-ownership-v1",
-      data: { sessionId: "sess-OTHER", records: [{ pane_id: "wI:p2", workspace_id: "wI", name: "stray", session: "sess-OTHER" }] },
-    });
-
-    const svc = new SubagentService({
-      paneId: "wI:p1",
-      runtimeDir: tmpDir,
-      scriptsDir: tmpDir,
-      now: () => 1000,
-    });
-
-    const deps: RegistrationDeps = { env: { HERDR_PANE_ID: "wI:p1" } as NodeJS.ProcessEnv, service: svc };
-    registerSubagentHerdr(fake.pi, deps);
-
-    for (const h of fake.handlers.get("session_start")!) await h({}, fake.ctx);
-
-    const owned = svc.getOwned();
-    assert.equal(owned.length, 0, "different-session records are not inherited");
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test("integration: strict getFlag throws for unregistered flag", async () => {
-  // The strict fake PI throws for unregistered flags.
-  // The factory registers the flag before reading it (lazy resolve),
-  // so getFlag should succeed after registration.
-  const fake = makeStrictPi();
-  const svc = makeFakeService(undefined);
-  registerSubagentHerdr(fake.pi, { env: {} as NodeJS.ProcessEnv, service: svc });
-
-  // The flag should be registered by the factory.
-  assert.ok(fake.flags.has("subagent-herdr-runtime-dir"), "flag registered");
-
-  // getFlag should now work (flag is registered).
-  assert.doesNotThrow(() => fake.pi.getFlag("subagent-herdr-runtime-dir"), "getFlag after registration");
 });

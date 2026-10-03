@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-03T06:47:17.186106+00:00",
+  "command": "npm run check",
+  "exitCode": 0,
+  "testTimeoutMs": 10000,
+  "counts": {
+    "tests": 163,
+    "pass": 163,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "sha256": {
+    "src/core.ts": "f4ae4570d8df766d22c6e8238cc4315313860f37ebd3f023aa9817c8fe0b2ecf",
+    "src/index.ts": "60b5f6bc4a11e949328e3e3a950bd2b36aa7e3bf22170b7d3eb56a00e035c064",
+    "src/transport.ts": "d6db6c0fb51633870d5bc5db0f2936ff386d43bb95bfc78dfeb0aaf03b43497a",
+    "tests/core.test.ts": "a74c395056720283738035a54bf4f25bfb64dc5e825fc458000df55984329379",
+    "tests/core-defects.test.ts": "eaacc7510d3e315fbc8a4617c121d4018dd7d2f397d27090529d786399889acb",
+    "tests/registration.test.ts": "03991c6291870e5fc292b1899839fa119eccff8ddbe5485ab2ad05bc5bccd7c3",
+    "package.json": "fe41af52c72745c5c0ef230f4136aab96caa3f6406322c6b21f8bb95bf23a908",
+    "package-lock.json": "b41bba39c465a08dc3001e47275c1eb84b39ae4ed02464ae549c303e865ffe08"
+  },
+  "nativeEvidence": "ergonomic_native_live.json; earlier controller implementation, not final correction/busy/timeout proof",
+  "regressionRed": {
+    "fiveFinalReviewCases": {
+      "tests": 5,
+      "pass": 0,
+      "fail": 5
+    },
+    "zeroCharacterCap": {
+      "tests": 1,
+      "pass": 0,
+      "fail": 1
+    }
+  },
+  "dependencyChanges": "Only root package and root lockfile version 0.1.0 -> 0.2.0; no dependency pins changed",
+  "secretScan": {
+    "stagedExitCode": 0,
+    "allFetchedHistoryExitCode": 0,
+    "historyCommitsScanned": 17,
+    "rules": "built-in Gitleaks rules, no added allowlists; ignore suppression comments; redacted output",
+    "configuration": "local uncommitted .gitleaks.toml; not shipped",
+    "limit": "scanner passage does not prove absence of all secrets"
+  }
+}

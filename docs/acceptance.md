@@ -1,6 +1,13 @@
 # Acceptance — requirement-to-evidence matrix (R-1..R-10)
 
-**Current status:** R-1..R-10 functional gates independently verified for the first-version surface; requirement-linked originals and limits are in `docs/live_verification.md`. Conditional genuine-sibling co-loading was unavailable, not passed. Latest strict currentSDK observation is timestamped in `agent/evidence-report.md`; no permanent count is claimed here.
+**Current status (0.2.0):** Firstmate automated acceptance is recorded in
+[`ergonomic_acceptance.md`](ergonomic_acceptance.md), including independent
+review, regression corrections and exact native limits. Human testing is
+explicitly post-push, not a publication prerequisite. The per-requirement live
+gates below remain reference criteria for comprehensive live verification;
+they are not claimed rerun/passed for the adapted implementation. First-version
+originals are in `live_verification.md`. Conditional sibling co-loading remains
+unexecuted.
 
 Evidence classes:
 - **Code:** read/verified in `src/` (design conformance only — never acceptance).
@@ -25,28 +32,28 @@ Standing rule: raw findings from discovery (`docs/findings.md`) are historical e
 - Blockers: none in repo; requires live scratch workspace + working pi runtime in worker pane (failure class 11: broken peer runtime is a distinct blocker).
 
 ### R-2 — wait for finish directly OR return after x s with last 50 chars
-- Code: `waitMode: none|bounded|finish`, `timeoutMs`, `tailChars` (default 50 bounded) on start/prompt; continuation records for `subagent_wait`.
-- Unit: bounded timeout, stalled with tail + working evidence, snapshot vs activity vs `terminal_observed_after_working`.
+- Code: `wait` boolean on start/prompt (start defaults false, prompt defaults true), `timeoutMs`, `returnLines`/`maxChars` for console bounds. Two-tier freshness in `subagent_wait` (no continuation).
+- Unit: bounded timeout, stalled with tail + working evidence, snapshot vs activity vs `terminal_observed`, tier-1 fast case, tier-2 state_changed_after_submission, stale-idle trap.
 - **Live gate:**
-  1. Trivial task with `waitMode=finish`: result must be `terminal_observed` (idle **or** done — the race must include both) and console tail must contain the task-specific answer.
-  2. Long task (≥ 60 s) with `waitMode=bounded timeoutMs=10000`: result must be a timeout/continuation record with ≤50-code-point tail, worker still alive (`agent get`), and a follow-up `subagent_wait` with the continuation must reach terminal.
+  1. Trivial task with `wait=true`: result must be `terminal_observed` (idle **or** done — the race must include both) and console must contain the task-specific answer.
+  2. Long task (≥ 60 s) with `wait=true timeoutMs=10000`: result must be a timeout with bounded console, worker still alive (`agent get`), and a follow-up `subagent_wait` must reach terminal.
   - **Accept when:** zero false terminal/completion claims; every fast turn either observed working (evidence) or reported honestly as snapshot/stalled.
 
 ### R-3 — get console content
-- Code: `subagent_read` (lifecycle-aware `agent read --lines --source recent-unwrapped`, `raw` fallback, code-point tail).
-- Unit: unicode/code-point tail bounds, raw fallback.
+- Code: `subagent_read` (lifecycle-aware `agent read --lines --source recent-unwrapped`, `source` auto/agent/raw, code-point tail via `returnLines`/`maxChars`).
+- Unit: unicode/code-point tail bounds, raw fallback, source auto/agent/raw, agent_not_idle visible viewport.
 - **Live gate:** `subagent_read` on a worker with known multi-line output; returned text matches `herdr agent read <pane> --lines N --source recent-unwrapped` (diff within tail bounds). Verify wide-character tail counts code points.
 - **Accept when:** content matches direct CLI output; bounded, no crash on empty/undetectable agent.
 
 ### R-4 — wait for console to 'finish' (--wait), then return last x chars
-- Code: `subagent_wait` (event wait + poll fallback semantics, seq-gated continuation, idle/done/blocked union, blocked → `needs_attention`).
-- Unit: continuation identity/seq, terminal-id mismatch, seq without working evidence.
-- **Live gate:** after an observed `working` state, wait must return terminal only on a **newer** seq with idle or done; blocked must return `needs_attention`, never ok. Verify the wait actually observed working (continuation `working_observed: true` from sampled get or CLI report — not from a timeout).
-- **Accept when:** fast-task case (turn ends between calls) is handled per plan_2 identity+seq comparison; no completion claimed without working evidence.
+- Code: `subagent_wait` (event wait + two-tier freshness, idle/done/blocked union, blocked → `needs_attention`). No continuation; internal pending context is memory-only.
+- Unit: tier-1 fast case, tier-2 state_changed_after_submission, stale-idle trap, timeout, identity drift, console failure isolation.
+- **Live gate:** after an observed `working` state, wait must return terminal only on a **newer** seq with idle or done; blocked must return `needs_attention`, never ok. Verify the wait actually observed working (working_observed: true from sampled get or CLI report — not from a timeout).
+- **Accept when:** fast-task case (turn ends between calls) is handled per two-tier freshness; no completion claimed without working evidence.
 
 ### R-5 — send text with <enter> to another pane
-- Code: `subagent_send` (single line + Enter; multi-line rejected).
-- Unit: owned/external opt-in, multi-line rejected, cross-workspace denied.
+- Code: `subagent_send` (single line + Enter; multi-line rejected; no console by default; opt-in via `returnLines`/`maxChars`).
+- Unit: multi-line rejected, no console by default, optional console with returnLines.
 - **Live gate:** send a known single line to an owned idle shell/worker pane; verify the line + Enter landed (e.g. echoes or executes). Multi-line: document current behaviour explicitly (open question) — tool rejects by design until live-verified.
 - **Accept when:** single-line send lands; rejection behaviour matches schema.
 
@@ -69,10 +76,10 @@ Standing rule: raw findings from discovery (`docs/findings.md`) are historical e
 - **Accept when:** fields match direct CLI.
 
 ### R-9 — close a pane
-- Code: `subagent_close` (idempotent; owned closes directly after identity check; external requires real UI confirm; `externalConfirmed` param never accepted).
-- Unit: idempotent close + absence verified, external opt-in, self-control denied.
-- **Live gate:** close an owned worker; verify gone from `pane list`; repeat (idempotent success). External pane: verify UI confirmation path fires (or denial without UI).
-- **Accept when:** owned close verified absent; `pane_not_found` treated as success; external path safe.
+- Code: `subagent_close` (idempotent; explicit pane close without ownership/workspace/UI approval; typed absence verified; no preferred acknowledgement flags).
+- Unit: idempotent close + absence verified, self-control denied, verified absence.
+- **Live gate:** close an owned worker; verify gone from `pane list`; repeat (idempotent success). Non-owned disposable fixture: verify the same explicit close/absence behavior without UI approval.
+- **Accept when:** explicit close verified absent; `pane_not_found` treated as success; no automatic peer cleanup.
 - Cleanup duty: every live gate closes all panes it opened and records cleanup in the evidence report.
 
 ### R-10 — HERDR-PANE-ID in bottom line when Pi runs inside a herdr pane
@@ -84,7 +91,7 @@ Standing rule: raw findings from discovery (`docs/findings.md`) are historical e
 
 ---
 
-## Cross-cutting acceptance gates (live-acceptance-contract + plan_2 gates 3–4)
+## Historical first-version cross-cutting gates (not the 0.2.0 publication gate)
 
 1. **Automated L1:** `npm run check` (typecheck + core/registration/transport suites). Do not cite failing/passing counts here; record a timestamped observation in `agent/evidence-report.md`. **Gate: fully green, re-run by lead immediately before any acceptance claim** (stale green counts are not evidence).
 2. **Reliability batch (contract; functional probing, not a statistical reliability claim):** 10 fast prompts on one cheap worker + 5 immediate start+prompt per mode + 2 normal task outcomes with verified result/artifact. Record all stalls/lost tasks; zero false terminal claims; every failure diagnosed/fixed or a report blocker — never soften the gate secretly.
@@ -101,7 +108,7 @@ Standing rule: raw findings from discovery (`docs/findings.md`) are historical e
 - Verify live workspace/pane identity before control (stale IDs never trusted).
 - Every gate ends with `pane list`/`workspace list` proving cleanup of owned panes; result recorded in `agent/evidence-report.md`.
 
-## Verification and declared limits
+## Historical first-version verification and declared limits
 
 R-1..R-10 matching original evidence is indexed in `docs/live_verification.md`; the definitions above remain unchanged. Fixed20turn functional batch, actual registration, ownership/cancellation, direct child environment, packed-package load and independent cleanup are recorded there. Final finish-tail and nonterminal-payload guards have real assertion-red/green regressions plus production finish proof.
 

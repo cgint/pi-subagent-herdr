@@ -1,6 +1,7 @@
-// Node:test suite for src/core.js + src/transport.js.
+// Node:test suite for src/core.js (0.2.0 ergonomic contract) + transport.
 // Fake transport implements a small herdr state machine so start, prompt,
-// wait, detection, races, cancellation, ownership and quoting are all
+// wait, detection, races, cancellation, ownership (informational), source
+// fallbacks, migration, timeout and the two-tier freshness rules are all
 // exercised without touching the live herdr server.
 
 import { test } from "node:test";
@@ -10,20 +11,9 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SubagentService, shellQuote, DEFAULTS } from "../src/core.js";
+import { SubagentService, shellQuote, DEFAULTS, rejectLegacyFields } from "../src/core.js";
+import { HerdrTransport, TransportError } from "../src/transport.js";
 import type { Transport, TransportResult, TransportOptions } from "../src/transport.js";
-
-// ---------------------------------------------------------------------------
-// TEST-ISOLATION GUARD
-// ---------------------------------------------------------------------------
-// This unit-test file must NEVER invoke the real herdr CLI. All herdr state is
-// simulated by the FakeWorld fake transport (makeService/makeTransport). The
-// ONLY real subprocesses spawned in this file are:
-//   - `node` (transport process tests: spawn/kill/timeout/abort/overflow), and
-//   - `zsh` (the shellQuote round-trip test).
-// Both are inert, herdr-free processes. The test below asserts this invariant
-// by checking that the real herdr binary is NOT used anywhere in the fake
-// transport path (the FakeWorld transport never calls the real CLI).
 
 // ---------------------------------------------------------------------------
 // Fake herdr world
@@ -35,6 +25,8 @@ interface FakeAgent {
   terminalId: string;
   name: string | null;
   alive: boolean;
+  kind: string;
+  managed: boolean;
 }
 
 class FakeWorld {
@@ -44,17 +36,13 @@ class FakeWorld {
   calls: Array<{ args: string[]; timeoutMs?: number }> = [];
   splitPaneCounter = 1;
   splitTerminals = new Map<string, string>();
-  /** Scripted status transitions: paneId -> queue of statuses to advance
-   *  through on successive `agent get` calls (after the queue is empty the
-   *  last status sticks). */
   scripts = new Map<string, string[]>();
-  /** agent prompt results: paneId -> "ok" | "stalled" | "timeout" | "blocked" */
   promptOutcomes = new Map<string, string>();
-  /** Number of agent-get calls needed before a pane becomes "detected". */
   detectionDelays = new Map<string, number>();
   detectionCounts = new Map<string, number>();
   failCommands: Array<{ match: RegExp; code: string; message: string }> = [];
   promptText: string[] = [];
+  agentNotIdle = false;
 
   addPanes(paneIds: string[], workspace: string) {
     for (const id of paneIds) this.panesAlive.add(id);
@@ -64,7 +52,7 @@ class FakeWorld {
   addAgent(
     paneId: string,
     workspace: string,
-    init: Partial<{ status: string; terminalId: string }> = {},
+    init: Partial<{ status: string; terminalId: string; kind: string; managed: boolean }> = {},
   ) {
     this.agents.set(paneId, {
       status: init.status ?? "idle",
@@ -72,6 +60,8 @@ class FakeWorld {
       terminalId: init.terminalId ?? `term_${paneId.replace(/[^a-z0-9]/gi, "")}`,
       name: null,
       alive: true,
+      kind: init.kind ?? "pi",
+      managed: init.managed ?? true,
     });
     this.addPanes([paneId], workspace);
   }
@@ -89,20 +79,23 @@ class FakeWorld {
 }
 
 function agentDoc(paneId: string, a: FakeAgent, workspace: string) {
+  const doc: Record<string, unknown> = {
+    agent: a.kind,
+    agent_status: a.status,
+    state_change_seq: a.seq,
+    pane_id: paneId,
+    workspace_id: workspace,
+    terminal_id: a.terminalId,
+    name: a.name,
+  };
+  if (a.managed && a.kind === "pi") {
+    doc.agent_session = { agent: "pi", kind: "path", source: "herdr:pi", value: `/fake/${paneId}.jsonl` };
+  }
   return {
     id: "cli:agent:get",
     result: {
       type: "agent_info",
-      agent: {
-        agent: "pi",
-        agent_session: { agent: "pi", kind: "path", source: "herdr:pi", value: `/fake/${paneId}.jsonl` },
-        agent_status: a.status,
-        state_change_seq: a.seq,
-        pane_id: paneId,
-        workspace_id: workspace,
-        terminal_id: a.terminalId,
-        name: a.name,
-      },
+      agent: doc,
     },
   };
 }
@@ -122,8 +115,7 @@ function paneDoc(paneId: string, workspace: string, a?: FakeAgent) {
   };
 }
 
-function makeTransport(world: FakeWorld, now?: () => number): Transport {
-  const clock = now ?? Date.now;
+function makeTransport(world: FakeWorld): Transport {
   return {
     async run(args: string[], options: TransportOptions = {}): Promise<TransportResult> {
       if (options.signal?.aborted) {
@@ -139,7 +131,8 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
           };
         }
       }
-      const [c0, c1, c2, c3, c4] = args;
+      const [c0, c1, c2, c3] = args;
+      const c4 = args[4];
       const out = (obj: unknown): TransportResult => ({
         exitCode: 0,
         stdout: JSON.stringify(obj),
@@ -162,17 +155,10 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
 
       if (c0 === "pane" && c1 === "split") {
         const ws = "wF";
-        // Pre-increment so the new pane id never collides with the caller's
-        // own pane (wF:p1) in single-split scenarios.
         world.splitPaneCounter += 1;
         const id = `wF:p${world.splitPaneCounter}`;
         world.workspaces.set(ws, { label: "scratch" });
-        // ACTUAL recorded shape (stageA_pane_split.json): result.type=pane_info,
-        // result.pane = a SINGLE pane object (not a panes array).
         world.panesAlive.add(id);
-        // Remember the terminal_id the split reported so `pane get` / agent
-        // detection stay consistent (the real CLI keeps a pane's terminal_id
-        // stable across reads).
         world.splitTerminals.set(id, `term_split_${world.splitPaneCounter}`);
         return out({
           id: "cli:pane:split",
@@ -201,7 +187,6 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
             stderr: JSON.stringify({ error: { code: "pane_not_found", message: `pane ${id} not found` } }),
           };
         }
-        // Auto-register the agent: launching the wrapper makes pi detect itself.
         if (!world.agents.has(id)) {
           const tid = world.splitTerminals.get(id);
           world.addAgent(id, "wF", { status: "idle", terminalId: tid });
@@ -233,12 +218,14 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
       }
 
       if (c0 === "pane" && c1 === "list") {
-        const ws = c4 ?? "wF";
+        // Find the --workspace value if present; default to wF.
+        const wsIdx = args.indexOf("--workspace");
+        const ws = wsIdx !== -1 ? args[wsIdx + 1] : "wF";
         const panes = [...world.panesAlive]
-          .filter((id) => id.startsWith(`${ws}:`))
+          .filter((id) => (ws === "all" ? true : id.startsWith(`${ws}:`)))
           .map((id) => ({
             pane_id: id,
-            workspace_id: ws,
+            workspace_id: id.slice(0, id.indexOf(":")),
             terminal_id: world.agents.get(id)?.terminalId ?? null,
             agent_status: world.agents.get(id)?.status ?? "unknown",
           }));
@@ -266,9 +253,12 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
           };
         }
         const scripted = world.nextStatus(id);
-        if (scripted) {
+        if (scripted && scripted !== "TIMEOUT") {
           a.status = scripted;
           a.seq += 1;
+        } else if (scripted === "TIMEOUT") {
+          // Put it back: TIMEOUT is only consumed by agent wait.
+          world.scripts.get(id)!.unshift("TIMEOUT");
         }
         const ws = id.slice(0, id.indexOf(":"));
         return out(agentDoc(id, a, ws));
@@ -314,24 +304,26 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
             stderr: JSON.stringify({ error: { code: "timeout", message: "timed out waiting for agent status" } }),
           };
         }
-        // Live CLI 0.9.3: the `agent_prompted` receipt carries the agent state
-        // BEFORE the new turn (stale snapshot), not the terminal state. The
-        // terminal transition is what `agent prompt --wait` blocks on; for a
-        // bounded wait the fake flips to the target terminal state after the
-        // receipt is handed back.
-        const snapshot = { ...a };
-        const ws = id.slice(0, id.indexOf(":"));
-        const receipt = {
-          id: "cli:agent:prompt",
-          result: { type: "agent_prompted", agent: { ...agentDoc(id, snapshot, ws).result.agent } },
-        };
-        if (world.promptOutcomes.get(id) === "blocked") {
+        // Advance the agent state (the prompt was accepted and the turn
+        // reached its terminal outcome).
+        if (outcome === "blocked") {
           a.status = "blocked";
           a.seq += 1;
         } else {
           a.status = "done";
           a.seq += 1;
         }
+        const ws = id.slice(0, id.indexOf(":"));
+        // `agent prompt --wait` returns the terminal state; a bare
+        // `agent prompt` (no --wait) returns the pre-prompt snapshot.
+        const hasWait = args.includes("--wait");
+        const receiptAgent = hasWait
+          ? agentDoc(id, a, ws).result.agent
+          : agentDoc(id, { ...a, status: a.status === "done" ? "idle" : a.status, seq: a.seq - 1 }, ws).result.agent;
+        const receipt = {
+          id: "cli:agent:prompt",
+          result: { type: "agent_prompted", agent: receiptAgent },
+        };
         return out(receipt);
       }
 
@@ -345,9 +337,19 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
             stderr: JSON.stringify({ error: { code: "agent_not_found", message: `agent target ${id} not found` } }),
           };
         }
+        // The visible viewport source succeeds even when the agent is not idle.
+        const sourceIdx = args.indexOf("--source");
+        const sourceVal = sourceIdx !== -1 ? args[sourceIdx + 1] : "default";
+        if (world.agentNotIdle && sourceVal !== "visible") {
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: JSON.stringify({ error: { code: "agent_not_idle", message: "active alternate screen; use visible source" } }),
+          };
+        }
         return out({
           id: "cli:agent:read",
-          result: { type: "read", text: "worker output 🧵🧵 end" },
+          result: { type: "read", text: sourceVal === "visible" ? "visible-viewport-output" : "worker output 🧵🧵 end" },
         });
       }
 
@@ -361,7 +363,6 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
             stderr: JSON.stringify({ error: { code: "agent_not_found", message: `agent target ${id} not found` } }),
           };
         }
-        // The scripted queue plays out on `agent wait` too.
         const scripted = world.nextStatus(id);
         if (scripted === "TIMEOUT") {
           return {
@@ -373,6 +374,18 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
         if (scripted) {
           a.status = scripted;
           a.seq += 1;
+        }
+        // If the agent is non-terminal and the --timeout is very small, the
+        // real CLI would time out before the agent reaches a terminal state.
+        // Simulate this to prevent tight-spinning in the fake transport.
+        const timeoutIdx = args.indexOf("--timeout");
+        const timeoutVal = timeoutIdx !== -1 ? parseInt(args[timeoutIdx + 1], 10) : 0;
+        if (a.status !== "idle" && a.status !== "done" && a.status !== "blocked" && timeoutVal > 0 && timeoutVal < 5) {
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: JSON.stringify({ error: { code: "timeout", message: "timed out waiting for agent status" } }),
+          };
         }
         const ws = id.slice(0, id.indexOf(":"));
         return out({
@@ -425,6 +438,17 @@ function makeTransport(world: FakeWorld, now?: () => number): Transport {
   };
 }
 
+const FAKE_SCRIPTS_DIR = mkdtempSync(join(tmpdir(), "fake-scripts-"));
+let SCRIPTS_DIR_READY = false;
+function ensureScriptsDir() {
+  if (SCRIPTS_DIR_READY) return;
+  writeFileSync(join(FAKE_SCRIPTS_DIR, "herdr-worker.sh"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
+  SCRIPTS_DIR_READY = true;
+}
+test("setup fake scripts", () => {
+  ensureScriptsDir();
+});
+
 function makeService(
   world: FakeWorld,
   extra: Record<string, unknown> = {},
@@ -437,34 +461,24 @@ function makeService(
     runtimeDir: overrides.runtimeDir ?? FAKE_SCRIPTS_DIR,
     defaults: {
       detectionMs: 3000,
-      boundedWaitMs: 4000,
-      finishWaitMs: 5000,
+      waitMs: 4000,
       maxWaitMs: 60_000,
-      tailBoundedChars: 50,
-      tailWaitChars: 2000,
-      readLines: 10,
-      readChars: 50_000,
+      consoleLines: 10,
+      consoleChars: 50,
+      maxConsoleLines: 500,
+      maxConsoleChars: 50_000,
     },
     ...extra,
   });
   return svc;
 }
 
-function getContinuationState(svc: SubagentService, id: string) {
-  return (svc as unknown as { continuations: Map<string, Record<string, unknown>> }).continuations.get(id);
+function worldWithWorker() {
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  world.addAgent("wF:p9", "wF", { status: "idle" });
+  return world;
 }
-
-const FAKE_SCRIPTS_DIR = mkdtempSync(join(tmpdir(), "fake-scripts-"));
-let SCRIPTS_DIR_READY = false;
-function ensureScriptsDir() {
-  if (SCRIPTS_DIR_READY) return;
-  writeFileSync(join(FAKE_SCRIPTS_DIR, "herdr-worker.sh"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
-  SCRIPTS_DIR_READY = true;
-}
-import { test as nodeTest } from "node:test";
-nodeTest("setup fake scripts", () => {
-  ensureScriptsDir();
-});
 
 // ---------------------------------------------------------------------------
 // shellQuote
@@ -521,58 +535,122 @@ test("execute: unknown operation rejected", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// test isolation guard: no real herdr in unit tests
+// test isolation guard
 // ---------------------------------------------------------------------------
 
 test("isolation: the unit-test service uses the FakeWorld transport, never the real herdr CLI", async () => {
   const world = new FakeWorld();
   world.addPanes(["wF:p1"], "wF");
   const svc = makeService(world);
-  // The service's transport must be the fake (recorded calls go to the fake
-  // world), NOT a real spawn-based HerdrTransport that would hit herdr.
   const inner = (svc as unknown as { transport: Transport }).transport;
   assert.ok(inner, "service has a transport");
-  // Prove the fake is wired: a start call records into world.calls and never
-  // spawns a real herdr process. We assert the call is captured by the fake.
   world.addAgent("wF:p1", "wF", { status: "idle" });
   await svc.execute("spaces", {});
   const spacesCalls = world.calls.filter((c) => c.args[0] === "workspace");
   assert.ok(spacesCalls.length >= 1, "the call was routed to the FakeWorld transport");
-  // The fake transport is a plain object, not a HerdrTransport instance (which
-  // would carry herdrPath/spawn behaviour).
   assert.ok(!(inner as unknown as { herdrPath?: string }).herdrPath, "transport is not a real HerdrTransport (no herdrPath)");
+});
+
+// ---------------------------------------------------------------------------
+// 0.1.x -> 0.2.0 migration: legacy field rejection (before any action)
+// ---------------------------------------------------------------------------
+
+test("migration: legacy target rejected with replacement hint, no action taken", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("prompt", { target: "wF:p9", prompt: "hi" });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "legacy_field");
+  assert.match(r.hint ?? "", /use pane/);
+  assert.deepEqual(world.promptText, [], "no prompt sent");
+});
+
+test("migration: prompt task (old field) rejected", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("prompt", { pane: "wF:p9", task: "hi" });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "legacy_field");
+  assert.match(r.hint ?? "", /use prompt/);
+});
+
+test("migration: waitMode rejected on all operations", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  for (const [op, args] of [
+    ["prompt", { pane: "wF:p9", prompt: "hi", waitMode: "none" }],
+    ["wait", { pane: "wF:p9", waitMode: "finish" }],
+    ["read", { pane: "wF:p9", waitMode: "none" }],
+  ] as const) {
+    const r = await svc.execute(op, args);
+    assert.equal(r.ok, false, `${op} waitMode`);
+    assert.equal(r.code, "legacy_field", `${op} waitMode`);
+    assert.match(r.hint ?? "", /use wait/);
+  }
+});
+
+test("migration: tailChars rejected", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9", tailChars: 50 });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "legacy_field");
+  assert.match(r.hint ?? "", /use returnLines \+ maxChars/);
+});
+
+test("migration: read lines/raw rejected", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r1 = await svc.execute("read", { pane: "wF:p9", lines: 50 });
+  assert.equal(r1.ok, false);
+  assert.match(r1.hint ?? "", /use returnLines/);
+  const r2 = await svc.execute("read", { pane: "wF:p9", raw: true });
+  assert.equal(r2.ok, false);
+  assert.match(r2.hint ?? "", /source: "raw"/);
+});
+
+test("migration: continuation rejected with direct-pane hint", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("wait", { pane: "wF:p9", continuation: "cont_1" });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "legacy_field");
+  assert.match(r.hint ?? "", /address the pane directly/);
+});
+
+test("migration: rejectLegacyFields is pure (no service needed)", () => {
+  const r = rejectLegacyFields({ target: "x" }, "read");
+  assert.equal(r?.code, "legacy_field");
+  assert.equal(rejectLegacyFields({ pane: "x", allowExternal: true }, "read"), null, "allowExternal accepted-but-ignored, not rejected");
+  assert.equal(rejectLegacyFields({ pane: "x" }, "read"), null);
 });
 
 // ---------------------------------------------------------------------------
 // start: full happy path
 // ---------------------------------------------------------------------------
 
-test("start: full lifecycle split→run→detection→rename→prompt (none)", async () => {
+test("start: full lifecycle split→run→detection→rename→prompt (submit-only default)", async () => {
   const world = new FakeWorld();
   world.addPanes(["wF:p1"], "wF");
   const svc = makeService(world);
-  const cwd = process.cwd();
   const r = await svc.execute("start", {
     name: "otto",
-    cwd,
+    cwd: process.cwd(),
     mode: "readonly",
     task: "Do the thing",
-    waitMode: "none",
   });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "submitted");
   assert.equal(r.phase, "submission");
-  assert.match(r.pane_id!, /^wF:p\d+$/);
+  assert.match(r.pane!, /^wF:p\d+$/);
   assert.equal(r.code, "agent_prompted");
-  assert.equal(typeof r.continuation, "string", "continuation is an opaque string handle");
+  assert.equal(r.delivery, "acknowledged", "agent_prompted acknowledges submission");
 
-  // Split used an explicit supervisor pane target, never --current.
   const splitCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "split")!;
   assert.ok(splitCall);
   assert.equal(splitCall.args[2], "wF:p1", "split targets the supervisor pane explicitly");
   assert.ok(!splitCall.args.includes("--current"), "never uses --current");
 
-  // Wrapper launched task-free with safe quoting.
   const runCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "run")!;
   assert.ok(runCall);
   const command = runCall.args[3];
@@ -580,21 +658,59 @@ test("start: full lifecycle split→run→detection→rename→prompt (none)", a
   assert.ok(command.includes("herdr-worker.sh"), "wrapper path present");
   assert.ok(!command.includes("Do the thing"), "task NOT in launch command");
 
-  // Rename happened after detection.
   const renameCall = world.calls.find((c) => c.args[0] === "agent" && c.args[1] === "rename")!;
   assert.equal(renameCall.args[3], "otto");
 
-  // Prompt delivered the task.
   assert.deepEqual(world.promptText, ["Do the thing"]);
 
-  // Ownership recorded with plain JSON fields.
   const owned = svc.getOwned();
   assert.equal(owned.length, 1);
-  assert.equal(owned[0].pane_id, r.pane_id);
+  assert.equal(owned[0].pane_id, r.pane);
   assert.equal(owned[0].name, "otto");
   assert.equal(owned[0].workspace_id, "wF");
   assert.ok(owned[0].terminal_id?.startsWith("term_"));
   assert.equal(typeof owned[0].launched_at, "number");
+
+  assert.ok(svc.pendingContext(r.pane!), "pending context recorded after start");
+  assert.ok(!("continuation" in (r as unknown as Record<string, unknown>)), "no public continuation field");
+});
+
+test("start: wait=true combines launch -> submit -> wait -> console", async () => {
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  const svc = makeService(world);
+  const r = await svc.execute("start", {
+    name: "otto",
+    cwd: process.cwd(),
+    task: "Do the thing",
+    wait: true,
+    timeoutMs: 4000,
+    returnLines: 10,
+    maxChars: 50,
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.status, "done");
+  assert.equal(r.delivery, "acknowledged");
+  assert.ok(r.console?.includes("worker output"), "console captured in the same result");
+  assert.equal(r.consoleSource, "agent");
+  assert.equal(r.code, "done");
+});
+
+test("start: explicit timeoutMs with wait=false is rejected (migration hint)", async () => {
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  const svc = makeService(world);
+  const r = await svc.execute("start", {
+    name: "a",
+    cwd: process.cwd(),
+    task: "t",
+    wait: false,
+    timeoutMs: 1000,
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "timeout_without_wait");
+  assert.match(r.hint ?? "", /wait phase/);
 });
 
 test("start: cwd must be an existing absolute directory", async () => {
@@ -656,11 +772,31 @@ test("start: timeout ceiling enforced", async () => {
   const world = new FakeWorld();
   const svc = makeService(world);
   const r = await svc.execute("start", {
-    name: "a", cwd: process.cwd(), task: "t",
-    waitMode: "finish", timeoutMs: 999_999_999,
+    name: "a",
+    cwd: process.cwd(),
+    task: "t",
+    wait: true,
+    timeoutMs: 999_999_999,
   });
   assert.equal(r.ok, false);
   assert.equal(r.code, "timeout_too_large");
+});
+
+test("start: explicit other-workspace destination validated before mutation", async () => {
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  const svc = makeService(world);
+  const r = await svc.execute("start", {
+    name: "a",
+    cwd: process.cwd(),
+    task: "t",
+    workspace: "wNOPE",
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "workspace_not_found");
+  assert.equal(r.phase, "validation");
+  const splits = world.calls.filter((c) => c.args[1] === "split");
+  assert.equal(splits.length, 0, "no split before destination validation");
 });
 
 // ---------------------------------------------------------------------------
@@ -673,15 +809,13 @@ test("start: detection timeout returns pane, never retries launch", async () => 
   world.addPanes(["wF:p1"], "wF");
   world.detectionDelays.set("wF:p2", 1_000_000);
   const svc = makeService(world);
-  const r = await svc.execute("start", {
-    name: "a", cwd: process.cwd(), task: "t",
-    waitMode: "none",
-  });
+  const r = await svc.execute("start", { name: "a", cwd: process.cwd(), task: "t" });
   assert.equal(r.ok, false);
   assert.equal(r.outcome, "detection_timeout");
   assert.equal(r.phase, "detection");
   assert.equal(r.code, "agent_not_found");
-  assert.ok(r.pane_id, "pane id surfaced for inspection");
+  assert.equal(r.delivery, "not_sent", "no task sent on detection timeout");
+  assert.ok(r.pane, "pane id surfaced for inspection");
   const runCalls = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "run");
   assert.equal(runCalls.length, 1, "exactly one launch, no duplicate/retry");
 });
@@ -695,7 +829,6 @@ test("start: malformed split (no valid result.pane) -> split_malformed, no launc
     transport: {
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "pane" && args[1] === "split") {
-          // No valid single-object pane: return a result without result.pane.
           return {
             exitCode: 0,
             stdout: JSON.stringify({ id: "cli:pane:split", result: { type: "pane_info" } }),
@@ -725,7 +858,6 @@ test("start: wrong-workspace split -> split_workspace_mismatch, not adopted", as
     transport: {
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "pane" && args[1] === "split") {
-          // Split landed in a DIFFERENT workspace than the supervisor.
           return {
             exitCode: 0,
             stdout: JSON.stringify({
@@ -758,25 +890,16 @@ test("start: records pending with terminal_id from the split object (before laun
   ensureScriptsDir();
   const base = makeTransport(world);
   const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        return base.run(args, options);
-      },
-    },
+    transport: base,
     paneId: "wF:p1",
     runtimeDir: FAKE_SCRIPTS_DIR,
     defaults: { detectionMs: 1000 },
   });
   const r = await svc.execute("start", { name: "a", cwd: process.cwd(), task: "t" });
   assert.equal(r.ok, true);
-  // The split object carried terminal_id "term_split_2" (splitPaneCounter starts
-  // at 1); the pending record recorded it immediately. We verify it survived to
-  // the promoted record.
-  assert.equal((r as { pane_id?: string }).pane_id, "wF:p2");
-  // Internal check: the owned record now has a terminal_id from the split.
+  assert.equal(r.pane, "wF:p2");
   const owned = (svc as unknown as { owned: Map<string, { terminal_id?: string; pending: boolean }> }).owned;
-  const paneId = (r as { pane_id: string }).pane_id;
-  const rec = owned.get(paneId);
+  const rec = owned.get("wF:p2");
   assert.ok(rec, "owned record exists");
   assert.equal(rec.terminal_id, "term_split_2", "terminal_id recorded from the split object");
   assert.equal(rec.pending, false, "promoted to verified");
@@ -786,26 +909,21 @@ test("start: launch fails and close is unverified -> ownership RETAINED (pane st
   const world = new FakeWorld();
   world.addPanes(["wF:p1"], "wF");
   ensureScriptsDir();
-  // Make `pane run` fail (launch error) and `pane close` fail with a
-  // NON-typed server error (so absence is UNVERIFIED).
   world.failCommands.push({ match: /^pane run /, code: "internal_error", message: "boom" });
   world.failCommands.push({ match: /^pane close /, code: "internal_error", message: "boom" });
   const svc = makeService(world);
   const r = await svc.execute("start", { name: "a", cwd: process.cwd(), task: "t" });
   assert.equal(r.ok, false);
   assert.equal(r.phase, "launch");
-  // Absence unverified: the pane must remain owned, not dropped.
   const owned = svc.getOwned();
   assert.equal(owned.length, 1, "ownership retained when close is unverified");
-  assert.equal(owned[0].pane_id, r.pane_id);
+  assert.equal(owned[0].pane_id, r.pane);
 });
 
 test("start: launch fails but close verifies the pane is gone -> ownership released", async () => {
   const world = new FakeWorld();
   world.addPanes(["wF:p1"], "wF");
   ensureScriptsDir();
-  // `pane run` fails (launch error); `pane close` succeeds -> the pane is gone
-  // (verified). Ownership should be released, not left orphaned.
   world.failCommands.push({ match: /^pane run /, code: "internal_error", message: "boom" });
   const svc = makeService(world);
   const r = await svc.execute("start", { name: "a", cwd: process.cwd(), task: "t" });
@@ -816,52 +934,140 @@ test("start: launch fails but close verifies the pane is gone -> ownership relea
 });
 
 // ---------------------------------------------------------------------------
-// prompt: preflight, serialization, outcomes
+// prompt: preflight, agent-neutrality, busy/blocked, submission
 // ---------------------------------------------------------------------------
 
-function worldWithWorker() {
-  const world = new FakeWorld();
-  world.addPanes(["wF:p1"], "wF");
-  world.addAgent("wF:p9", "wF", { status: "idle" });
-  return world;
-}
-
-test("prompt: happy path none -> submitted", async () => {
+test("prompt: happy path wait=false -> submitted receipt", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "hello", waitMode: "none" });
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "hello", wait: false });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "submitted");
   assert.equal(r.code, "agent_prompted");
-  assert.equal(typeof r.continuation, "string", "submission receipt returns an opaque continuation");
+  assert.equal(r.delivery, "acknowledged");
   assert.deepEqual(world.promptText, ["hello"]);
+  assert.ok(!("continuation" in (r as unknown as Record<string, unknown>)), "no public continuation");
+  assert.ok(svc.pendingContext("wF:p9"), "internal pending context recorded");
 });
 
-test("prompt: refuses working target", async () => {
+test("prompt: default wait=true submits, waits, returns status + console", async () => {
   const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "working";
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "hi" });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "prompt_refused");
-  assert.equal(r.code, "agent_working");
-  assert.deepEqual(world.promptText, []);
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "hello" });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.status, "done");
+  assert.equal(r.delivery, "acknowledged");
+  assert.ok(r.console?.includes("worker output"), "console in the same result");
+  assert.equal(r.consoleSource, "agent");
 });
 
-test("prompt: refuses blocked target", async () => {
+test("prompt: agent-neutral — non-Pi (claude) existing agent is prompted", async () => {
+  const world = worldWithWorker();
+  world.agents.set("wF:p77", {
+    status: "idle",
+    seq: 300,
+    terminalId: "term_claude",
+    name: "buddy",
+    alive: true,
+    kind: "claude",
+    managed: false,
+  });
+  world.panesAlive.add("wF:p77");
+  world.workspaces.set("wF", { label: "wF" });
+  const svc = makeService(world);
+  const r = await svc.execute("prompt", { pane: "wF:p77", prompt: "hi buddy", wait: false });
+  assert.equal(r.ok, true, "non-Pi agent prompted without managed-Pi readiness gate");
+  assert.equal(r.outcome, "submitted");
+  assert.equal(r.delivery, "acknowledged");
+  assert.equal(r.agent, "claude");
+  assert.deepEqual(world.promptText, ["hi buddy"]);
+});
+
+test("prompt: blocked preflight -> not_sent (actual CLI agent_blocked)", async () => {
   const world = worldWithWorker();
   world.agents.get("wF:p9")!.status = "blocked";
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "hi" });
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "hi" });
   assert.equal(r.ok, false);
-  assert.equal(r.outcome, "prompt_refused");
+  assert.equal(r.outcome, "not_sent");
   assert.equal(r.code, "agent_blocked");
+  assert.equal(r.delivery, "not_sent");
+  assert.deepEqual(world.promptText, [], "blocked = nothing sent");
 });
 
-test("prompt: stalled -> stalled outcome with tail, no auto-resend", async () => {
+test("prompt: busy (working) preflight is allowed; submittedWhile + no automatic pending", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "working";
+  const base = makeTransport(world);
+  const svc = new SubagentService({
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        const result = await base.run(args, options);
+        if (args[0] === "agent" && args[1] === "prompt") {
+          // Keep the receipt in the working state (busy submission):
+          // the CLI snapshot still reflects the pre-existing turn.
+          const doc = JSON.parse(result.stdout);
+          doc.result.agent.agent_status = "working";
+          return { ...result, stdout: JSON.stringify(doc) };
+        }
+        return result;
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+    defaults: { detectionMs: 500, waitMs: 4000, maxWaitMs: 60_000 },
+  });
+  ensureScriptsDir();
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "next", wait: false });
+  assert.equal(r.ok, true, "busy submission is allowed as Herdr allows it");
+  assert.equal(r.submittedWhile, "working");
+  assert.deepEqual(world.promptText, ["next"], "submission delivered");
+  assert.equal(svc.pendingContext("wF:p9"), undefined, "busy submission carries no automatic pending context");
+});
+
+test("prompt: busy wait=true carries observation may_reflect_prior_turn", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "working";
+  world.agents.get("wF:p9")!.seq = 200;
+  const base = makeTransport(world);
+  const svc = new SubagentService({
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        const result = await base.run(args, options);
+        if (args[0] === "agent" && args[1] === "prompt" && args.includes("--wait")) {
+          // The --wait receipt returns the terminal state (done at seq 201).
+          const doc = JSON.parse(result.stdout);
+          doc.result.agent.agent_status = "done";
+          doc.result.agent.state_change_seq = 201;
+          return { ...result, stdout: JSON.stringify(doc) };
+        }
+        return result;
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+    defaults: { detectionMs: 500, waitMs: 4000, maxWaitMs: 60_000 },
+  });
+  ensureScriptsDir();
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "busy-wait", wait: true });
+  assert.equal(r.ok, true, "busy wait=true reaches terminal");
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.status, "done");
+  assert.equal(r.observation, "may_reflect_prior_turn", "busy submission carries may_reflect_prior_turn");
+  assert.equal(r.submittedWhile, "working");
+});
+
+test("prompt: unknown pane (no agent) -> agent_not_found preflight error", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("prompt", { pane: "wF:pX999", prompt: "hi" });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "agent_not_found");
+  assert.equal(r.phase, "preflight");
+});
+
+test("prompt: stalled -> stalled outcome with console, no auto-resend", async () => {
   const world = worldWithWorker();
   world.promptOutcomes.set("wF:p9", "stalled");
   const base = makeTransport(world);
@@ -869,8 +1075,6 @@ test("prompt: stalled -> stalled outcome with tail, no auto-resend", async () =>
     transport: {
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "agent" && args[1] === "prompt") {
-          // Simulate the live race: the agent starts working right after
-          // submission, then the CLI reports agent_prompt_stalled.
           world.agents.get("wF:p9")!.status = "working";
           world.agents.get("wF:p9")!.seq += 1;
           await new Promise((res) => setTimeout(res, 200));
@@ -880,460 +1084,41 @@ test("prompt: stalled -> stalled outcome with tail, no auto-resend", async () =>
     },
     paneId: "wF:p1",
     runtimeDir: FAKE_SCRIPTS_DIR,
-    defaults: { detectionMs: 500, boundedWaitMs: 4000, finishWaitMs: 5000, maxWaitMs: 60_000 },
+    defaults: { detectionMs: 500, waitMs: 4000, maxWaitMs: 60_000 },
   });
   ensureScriptsDir();
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "hi", waitMode: "bounded" });
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "hi", wait: true, timeoutMs: 4000 });
   assert.equal(r.ok, false);
   assert.equal(r.outcome, "stalled");
   assert.equal(r.code, "agent_prompt_stalled");
-  assert.ok(r.tail?.includes("worker output"), "tail included on stall");
-  assert.equal(typeof r.continuation, "string", "stall returns an opaque continuation");
-
-  // The continuation carries the sampled working evidence (working was
-  // observed right after submission). Verify by waiting: since the agent is
-  // still working (no terminal yet), wait should report working/timeout, but
-  // the recorded evidence must be working (not fabricated).
-  const cont = r.continuation!;
-  world.agents.get("wF:p9")!.status = "working";
-  const w = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 30 });
-  // The wait should not claim terminal_observed_after_working unless a
-  // terminal state was actually observed. It either times out or reports
-  // activity; it must not fabricate working evidence.
-  assert.equal(w.ok, false, "a still-working target cannot be a successful terminal observation");
-  assert.notEqual(w.outcome, "terminal_observed_after_working");
+  assert.ok(r.console?.includes("worker output"), "console included on stall");
+  assert.equal(r.delivery, "unknown", "stall does not confirm delivery");
+  assert.deepEqual(world.promptText, ["hi"], "sent exactly once — no auto-resend");
 });
 
-test("prompt: forged continuation id is rejected, never minted", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  // A forged/unknown continuation id cannot create working evidence.
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: "cont_forged_000", timeoutMs: 1000 });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "unknown_continuation");
-  assert.equal(r.phase, "validation");
-  assert.notEqual(r.outcome, "terminal_observed_after_working", "forged id cannot imply a new turn");
-});
-
-test("wait: stale terminal wait without continuation is labelled snapshot, not a new turn", async () => {
-  const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "done"; // already terminal
-  const svc = makeService(world);
-  const r = await svc.execute("wait", { target: "wF:p9", timeoutMs: 1000 });
-  assert.equal(r.ok, true);
-  assert.equal(r.outcome, "terminal_observed");
-  assert.equal(r.code, "snapshot", "no baseline -> snapshot, cannot imply a new turn");
-  assert.equal(r.continuation, undefined, "snapshot wait returns no continuation");
-});
-
-test("wait: blocked snapshot -> needs_attention", async () => {
-  const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "blocked";
-  const svc = makeService(world);
-  const r = await svc.execute("wait", { target: "wF:p9", timeoutMs: 1000 });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "needs_attention");
-  assert.equal(r.status, "blocked");
-});
-
-test("wait: working agent times out -> timeout with tail, worker not killed", async () => {
-  const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "working";
-  world.scripts.set("wF:p9", ["working", "TIMEOUT"]);
-  const svc = makeService(world);
-  const r = await svc.execute("wait", { target: "wF:p9", timeoutMs: 50 });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "timeout");
-  assert.equal(r.code, "timeout");
-  assert.ok(r.tail?.includes("worker output"));
-  assert.equal(world.agents.get("wF:p9")!.alive, true, "worker still alive after timeout");
-  const waitCall = world.calls.find((c) => c.args[0] === "agent" && c.args[1] === "wait")!;
-  const untils = waitCall.args.flatMap((a, i) => (a === "--until" ? [waitCall.args[i + 1]] : []));
-  assert.deepEqual(untils, ["idle", "done", "blocked"]);
-});
-
-test("wait: continuation on stale same-seq terminal does not shortcut completion", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  a.status = "done";
-  a.seq = 100;
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 100,
-    delivery_confirmed: true,
-    receipt_seq: 100,
-    receipt_state: "done",
-    working_observed: false,
-    state: "done",
-    seq: 100,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 20 });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "timeout");
-  assert.equal(r.code, "timeout");
-  assert.notEqual(r.outcome, "terminal_observed");
-});
-
-test("wait: confirmed continuation samples working and only accepts a newer terminal", async () => {
-  const world = worldWithWorker();
-  ensureScriptsDir();
-  const a = world.agents.get("wF:p9")!;
-  a.status = "idle";
-  a.seq = 234;
-  const base = makeTransport(world);
-  let getCount = 0;
-  const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9") {
-          getCount += 1;
-          if (getCount === 2) {
-            a.status = "working";
-            a.seq = 235;
-          } else if (getCount === 3) {
-            a.status = "done";
-            a.seq = 236;
-          }
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-  assert.equal(r.ok, true);
-  assert.equal(r.outcome, "terminal_observed_after_working");
-  assert.equal(r.seq, 236);
-  const state = getContinuationState(svc, cont)!;
-  assert.equal(state.working_seq, 235, "actual sampled working is retained on the continuation");
-  assert.equal(state.baseline_seq, 234, "baseline stays frozen");
-  assert.equal(state.terminal_id, a.terminalId, "frozen terminal identity stays unchanged");
-});
-
-test("wait: confirmed continuation fast newer terminal without working sample stays observational", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  a.status = "done";
-  a.seq = 236;
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-  assert.equal(r.ok, true);
-  assert.equal(r.outcome, "terminal_observed");
-  assert.ok(r.hint?.includes("confirmed delivery"));
-  assert.notEqual(r.outcome, "terminal_observed_after_working");
-});
-
-test("wait: continuation timeout retains sampled working and frozen identity", async () => {
-  const world = worldWithWorker();
-  ensureScriptsDir();
-  const a = world.agents.get("wF:p9")!;
-  a.status = "idle";
-  a.seq = 234;
-  const base = makeTransport(world);
-  let getCount = 0;
-  const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9") {
-          getCount += 1;
-          if (getCount === 2) {
-            a.status = "working";
-            a.seq = 235;
-          }
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 250 });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "timeout");
-  const state = getContinuationState(svc, cont)!;
-  assert.equal(state.working_seq, 235, "sampled working is retained across timeout/re-wait");
-  assert.equal(state.baseline_seq, 234, "baseline does not slide on timeout");
-  assert.equal(state.workspace_id, "wF", "workspace identity stays frozen on timeout");
-  assert.equal(state.terminal_id, a.terminalId, "terminal identity stays frozen on timeout");
-});
-
-test("wait: unconfirmed continuation never upgrades activity into own-task proof", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  a.status = "done";
-  a.seq = 236;
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: false,
-    working_observed: true,
-    working_seq: 235,
-    state: "working",
-    seq: 235,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-  assert.equal(r.ok, true);
-  assert.equal(r.outcome, "terminal_observed");
-  assert.ok(r.hint?.includes("delivery was not confirmed"));
-  assert.notEqual(r.outcome, "terminal_observed_after_working");
-});
-
-test("wait: continuation cancellation mid-poll is cancelled, not timeout", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  a.status = "idle";
-  a.seq = 234;
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 10);
-  try {
-    const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 }, ac.signal);
-    assert.equal(r.ok, false);
-    assert.equal(r.outcome, "cancelled");
-    assert.equal(r.code, "aborted");
-  } finally {
-    clearTimeout(timer);
-  }
-});
-
-test("wait: continuation terminal drift mid-poll -> identity error", async () => {
-  const world = worldWithWorker();
-  ensureScriptsDir();
-  const a = world.agents.get("wF:p9")!;
-  a.status = "idle";
-  a.seq = 234;
-  const base = makeTransport(world);
-  let getCount = 0;
-  const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9") {
-          getCount += 1;
-          if (getCount === 2) {
-            a.terminalId = "term_reused_live";
-            a.seq = 235;
-          }
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: "term_wFp9",
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "identity_mismatch");
-  assert.equal(r.phase, "identity");
-});
-
-test("wait: continuation workspace drift mid-poll -> identity error", async () => {
-  const world = worldWithWorker();
-  ensureScriptsDir();
-  const a = world.agents.get("wF:p9")!;
-  a.status = "idle";
-  a.seq = 234;
-  const base = makeTransport(world);
-  let getCount = 0;
-  const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9") {
-          getCount += 1;
-          if (getCount === 2) {
-            return {
-              exitCode: 0,
-              stdout: JSON.stringify({
-                id: "cli:agent:get",
-                result: {
-                  type: "agent_info",
-                  agent: {
-                    agent: "pi",
-                    agent_status: "idle",
-                    state_change_seq: 235,
-                    pane_id: "wF:p9",
-                    workspace_id: "wOTHER",
-                    terminal_id: a.terminalId,
-                    name: a.name,
-                  },
-                },
-              }),
-              stderr: "",
-            };
-          }
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const cont = svc.registerContinuation({
-    pane_id: "wF:p9",
-    workspace_id: "wF",
-    terminal_id: a.terminalId,
-    baseline_seq: 234,
-    delivery_confirmed: true,
-    receipt_seq: 234,
-    receipt_state: "idle",
-    working_observed: false,
-    state: "idle",
-    seq: 234,
-  });
-  const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "identity_mismatch");
-  assert.equal(r.phase, "identity");
-});
-
-test("prompt: blocked result != completion", async () => {
-  const world = worldWithWorker();
-  // Prompt returns ok but lands in blocked.
-  ensureScriptsDir();
-  const base = makeTransport(world);
-  const svc = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "prompt") {
-          const a = world.agents.get(args[2]!)!;
-          a.status = "blocked";
-          a.seq += 1;
-          return {
-            exitCode: 0,
-            stdout: JSON.stringify({
-              id: "cli:agent:prompt",
-              result: { type: "agent_prompted", agent: { agent_status: "blocked", state_change_seq: a.seq, pane_id: args[2], workspace_id: "wF" } },
-            }),
-            stderr: "",
-          };
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-    defaults: { detectionMs: 500, boundedWaitMs: 4000, finishWaitMs: 5000, maxWaitMs: 60_000 },
-  });
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "write x", waitMode: "bounded" });
-  assert.equal(r.ok, false, "blocked is never ok");
-  assert.equal(r.outcome, "needs_attention");
-  assert.equal(r.status, "blocked");
-});
-
-test("prompt: parallel submissions serialize per target", async () => {
+test("prompt: parallel submissions deliver (no wrapper-level serialization required)", async () => {
   ensureScriptsDir();
   const world = worldWithWorker();
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  let overlap = false;
-  let inFlight = 0;
-  const base = makeTransport(world);
-  const svc2 = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "prompt") {
-          inFlight += 1;
-          if (inFlight > 1) overlap = true;
-          await new Promise((res) => setTimeout(res, 30));
-          inFlight -= 1;
-          return base.run(args, options);
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-    defaults: { detectionMs: 500, boundedWaitMs: 4000, finishWaitMs: 5000, maxWaitMs: 60_000 },
-  });
-  svc2.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
   await Promise.all([
-    svc2.execute("prompt", { target: "wF:p9", task: "one" }),
-    svc2.execute("prompt", { target: "wF:p9", task: "two" }),
+    svc.execute("prompt", { pane: "wF:p9", prompt: "one", wait: false }),
+    svc.execute("prompt", { pane: "wF:p9", prompt: "two", wait: false }),
   ]);
-  assert.equal(overlap, false, "submissions to the same target never run concurrently");
-  assert.deepEqual(world.promptText, ["one", "two"]);
+  assert.deepEqual(world.promptText.sort(), ["one", "two"]);
 });
 
 // ---------------------------------------------------------------------------
-// read
+// read: source semantics, bounds, unicode
 // ---------------------------------------------------------------------------
 
-test("read: lifecycle-aware with unicode tail bounds", async () => {
+test("read: auto source happy path with unicode tail bounds", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
-  const r = await svc.execute("read", { target: "wF:p9" });
+  const r = await svc.execute("read", { pane: "wF:p9" });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "read");
-  assert.equal(r.tail, "worker output 🧵🧵 end");
+  assert.equal(r.console, "worker output 🧵🧵 end");
+  assert.equal(r.consoleSource, "agent");
 });
 
 test("read: char tail counts code points, not bytes/surrogates", async () => {
@@ -1344,7 +1129,6 @@ test("read: char tail counts code points, not bytes/surrogates", async () => {
     transport: {
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "agent" && args[1] === "read") {
-          // 10 emoji = 10 code points, 40 bytes.
           return {
             exitCode: 0,
             stdout: JSON.stringify({
@@ -1360,86 +1144,483 @@ test("read: char tail counts code points, not bytes/surrogates", async () => {
     paneId: "wF:p1",
     runtimeDir: FAKE_SCRIPTS_DIR,
   });
-  const r = await svc.execute("read", { target: "wF:p9", maxChars: 4 });
+  const r = await svc.execute("read", { pane: "wF:p9", maxChars: 4 });
   assert.equal(r.ok, true);
-  assert.equal(r.tail, "🧵🧵🧵🧵", "tail is 4 code points, not truncated mid-surrogate");
-  assert.equal([...r.tail!].length, 4);
+  assert.equal(r.console, "🧵🧵🧵🧵", "tail is 4 code points, not truncated mid-surrogate");
+  assert.equal([...r.console!].length, 4);
 });
 
-test("read: raw fallback uses pane read", async () => {
+test("read: maxChars clipping is reported as truncated", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
-  const r = await svc.execute("read", { target: "wF:p9", raw: true });
+  const r = await svc.execute("read", { pane: "wF:p9", maxChars: 5 });
+  assert.equal(r.ok, true);
+  assert.equal(r.truncated, true, "clipping is visible");
+  assert.equal([...r.console!].length, 5);
+});
+
+test("read: returnLines=0 disables console capture", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9", returnLines: 0 });
+  assert.equal(r.ok, true);
+  assert.equal(r.console, undefined);
+  assert.equal(world.calls.filter((c) => c.args[0] === "agent" && c.args[1] === "read").length, 0, "no console read issued");
+});
+
+test("read: source=raw uses pane read only", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9", source: "raw" });
   assert.equal(r.ok, true);
   const readCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "read")!;
   assert.ok(readCall);
-  assert.ok(r.tail?.includes("raw-output"));
+  assert.ok(r.console?.includes("raw-output"));
+  assert.equal(r.consoleSource, "raw");
+});
+
+test("read: source=auto falls back to raw pane console on typed agent_not_found", async () => {
+  const world = worldWithWorker();
+  world.killAgent("wF:p9");
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9" });
+  assert.equal(r.ok, true, "auto falls back to raw on typed agent_not_found");
+  assert.ok(r.console?.includes("raw-output"));
+  assert.equal(r.consoleSource, "raw");
+  assert.equal(r.status, "unknown", "raw fallback carries unknown status");
+});
+
+test("read: source=auto on agent_not_idle reads the visible viewport", async () => {
+  const world = worldWithWorker();
+  world.agentNotIdle = true;
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9" });
+  assert.equal(r.ok, true);
+  assert.equal(r.consoleSource, "visible");
+  assert.match(r.hint ?? "", /visible viewport/);
+  const reads = world.calls.filter((c) => c.args[0] === "agent" && c.args[1] === "read");
+  assert.equal(reads.length, 2);
+  assert.equal(reads[1].args[reads[1].args.indexOf("--source") + 1], "visible");
+  assert.ok(r.console?.includes("visible-viewport-output"));
+});
+
+test("read: source=agent strict does not fall back on agent_not_found", async () => {
+  const world = worldWithWorker();
+  world.killAgent("wF:p9");
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9", source: "agent" });
+  assert.equal(r.ok, false, "strict agent source surfaces the error");
+  assert.equal(r.code, "console_read_failed");
+  assert.match(r.detail ?? "", /agent_not_found/);
+});
+
+test("read: other real errors (server) stay errors in auto mode", async () => {
+  const world = worldWithWorker();
+  world.failCommands.push({ match: /^agent read wF:p9/, code: "server_not_running", message: "no server" });
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9" });
+  assert.equal(r.ok, false, "a real server error is not a fallback trigger");
+  assert.equal(r.code, "console_read_failed");
+  assert.match(r.detail ?? "", /server_not_running/);
+});
+
+test("read: out-of-range returnLines rejected before any action", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("read", { pane: "wF:p9", returnLines: 9999 });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "invalid_return_lines");
+  assert.equal(world.calls.length, 0, "no herdr call on invalid bounds");
+});
+
+// ---------------------------------------------------------------------------
+// wait: snapshot, tiers, identity drift, timeout, cancellation
+// ---------------------------------------------------------------------------
+
+test("wait: terminal pane without pending context returns labelled snapshot", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "done";
+  const svc = makeService(world);
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "snapshot");
+  assert.equal(r.observation, "snapshot", "no baseline -> snapshot, cannot imply a new turn");
+});
+
+test("wait: blocked snapshot -> needs_attention", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "blocked";
+  const svc = makeService(world);
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, "needs_attention");
+  assert.equal(r.status, "blocked");
+});
+
+test("wait: working agent times out -> timeout with console, worker not killed", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "working";
+  world.scripts.set("wF:p9", ["working", "TIMEOUT"]);
+  const svc = makeService(world);
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 50 });
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, "timeout");
+  assert.equal(r.code, "timeout");
+  assert.ok(r.console?.includes("worker output"));
+  assert.equal(world.agents.get("wF:p9")!.alive, true, "worker still alive after timeout");
+  const waitCall = world.calls.find((c) => c.args[0] === "agent" && c.args[1] === "wait")!;
+  const untils = waitCall.args.flatMap((a, i) => (a === "--until" ? [waitCall.args[i + 1]] : []));
+  assert.deepEqual(untils, ["idle", "done", "blocked"]);
+});
+
+test("wait: tier 1 fast case — terminal seen during submission settles once", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "done";
+  a.seq = 236;
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    receipt_seq: 236,
+    receipt_state: "done",
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "terminal_seen_during_submission");
+  assert.equal(r.observation, "terminal_seen_during_submission");
+  assert.equal(r.seq, 236);
+  const r2 = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  assert.equal(r2.code, "snapshot", "settled record is not reused");
+});
+
+test("wait: tier 1 fast case yields to tier 2 when the live pane is now working", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "working";
+  a.seq = 237; // Newer working state must not settle: wait for terminal.
+  world.scripts.set("wF:p9", ["working", "working", "done"]);
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    receipt_seq: 236,
+    receipt_state: "done",
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 2000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "state_changed_after_submission", "live working overrides the tier 1 fast path");
+  assert.equal(r.status, "done", "only terminal state settles tier 2");
+  assert.ok(world.calls.some(c => c.args[0] === "agent" && c.args[1] === "wait"));
+  assert.equal(r.observation, "state_changed_after_submission");
+});
+
+test("wait: tier 2 — terminal at/under the baseline is NOT settled (stale-idle trap)", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "idle";
+  a.seq = 234;
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 100 });
+  assert.notEqual(r.outcome, "terminal_observed", "stale same-seq terminal never settles the pending record");
+  assert.equal(r.ok, false, "a stale-idle wait that cannot observe progress is not a success");
+  const pending = svc.pendingContext("wF:p9");
+  assert.ok(pending && !pending.settled, "pending record stays unsettled");
+});
+
+test("wait: tier 2 — newer terminal settles with state_changed_after_submission", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "working";
+  a.seq = 235;
+  world.scripts.set("wF:p9", ["done"]);
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    working_observed: true,
+    working_seq: 235,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 2000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "state_changed_after_submission");
+  assert.equal(r.observation, "state_changed_after_submission");
+  assert.equal(r.seq, 236);
+});
+
+test("wait: both seq missing + lookup supplies baseline → settles with terminal_seen_in_post_submit_lookup", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "done";
+  a.seq = 300;
+  const svc = makeService(world);
+  // Pending record with NO baseline_seq and NO receipt_seq.
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 2000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "terminal_seen_in_post_submit_lookup");
+  assert.equal(r.observation, "terminal_seen_in_post_submit_lookup");
+  assert.equal(r.seq, 300);
+});
+
+test("wait: both seq missing + lookup terminal labelled terminal_seen_in_post_submit_lookup", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "idle";
+  a.seq = 310;
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 2000 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "terminal_seen_in_post_submit_lookup");
+  assert.equal(r.observation, "terminal_seen_in_post_submit_lookup");
+  assert.equal(r.status, "idle");
+});
+
+test("wait: both seq missing + lookup also seq-less → context_establishment_failed, no settlement", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "working";
+  // Delete the seq to simulate a seq-less lookup.
+  delete (a as unknown as Record<string, unknown>).seq;
+  const base = makeTransport(world);
+  const svc = new SubagentService({
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        const result = await base.run(args, options);
+        if (args[0] === "agent" && args[1] === "get") {
+          // Strip state_change_seq from the response to simulate seq-less.
+          const doc = JSON.parse(result.stdout);
+          delete doc.result.agent.state_change_seq;
+          return { ...result, stdout: JSON.stringify(doc) };
+        }
+        return result;
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+    defaults: { detectionMs: 500, waitMs: 4000, maxWaitMs: 60_000 },
+  });
+  ensureScriptsDir();
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 100 });
+  assert.equal(r.ok, false, "context establishment failed is not a success");
+  assert.equal(r.code, "context_establishment_failed");
+  assert.equal(r.outcome, "error");
+  const pending = svc.pendingContext("wF:p9");
+  assert.ok(pending && !pending.settled, "pending record stays unsettled");
+});
+
+test("wait: identity drift (reused pane) discards the pending association", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "idle";
+  a.seq = 234;
+  a.terminalId = "term_reused_live";
+  const svc = makeService(world);
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: "term_wFp9",
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  // Identity drift discards the association and falls through to the
+  // current-pane observation (snapshot for terminal, event-wait for working).
+  // No error-for-drift: the explicit pane call is not vetoed by stale bookkeeping.
+  assert.notEqual(r.code, "identity_mismatch", "drift must not produce an identity_mismatch error");
+  assert.equal(svc.pendingContext("wF:p9"), undefined, "drift discards the association");
+  // The agent is idle (terminal): the wait returns a snapshot.
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.code, "snapshot");
+});
+
+test("wait: workspace drift is reported as identity mismatch", async () => {
+  const world = worldWithWorker();
+  const a = world.agents.get("wF:p9")!;
+  a.status = "idle";
+  a.seq = 234;
+  const base = makeTransport(world);
+  const svc = new SubagentService({
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        const res = await base.run(args, options);
+        if (args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9") {
+          const doc = JSON.parse(res.stdout);
+          doc.result.agent.workspace_id = "wOTHER";
+          return { ...res, stdout: JSON.stringify(doc) };
+        }
+        return res;
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+  });
+  (svc as unknown as { pending: Map<string, unknown> }).pending.set("wF:p9", {
+    pane_id: "wF:p9",
+    workspace_id: "wF",
+    terminal_id: a.terminalId,
+    baseline_seq: 234,
+    delivery_confirmed: true,
+    working_observed: false,
+  });
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 1000 });
+  // Workspace drift discards the association and falls through to the
+  // current-pane observation. No error-for-drift.
+  assert.notEqual(r.code, "identity_mismatch", "drift must not produce an identity_mismatch error");
+  assert.equal(svc.pendingContext("wF:p9"), undefined, "drift discards the association");
+});
+
+test("wait: cancellation mid-wait is cancelled, not timeout; worker untouched", async () => {
+  const world = worldWithWorker();
+  world.agents.get("wF:p9")!.status = "working";
+  const controller = new AbortController();
+  const base = makeTransport(world);
+  const svc2 = new SubagentService({
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        if (args[0] === "agent" && args[1] === "wait") {
+          await new Promise<void>((resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
+            setTimeout(resolve, 500);
+          });
+        }
+        return base.run(args, options);
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+    defaults: { detectionMs: 500, waitMs: 5000, maxWaitMs: 60_000 },
+  });
+  const p = svc2.execute("wait", { pane: "wF:p9", timeoutMs: 4000 }, controller.signal);
+  setTimeout(() => controller.abort(), 50);
+  const r = await p;
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, "cancelled");
+  assert.equal(r.code, "aborted");
+  assert.equal(world.agents.get("wF:p9")!.alive, true, "worker not touched by cancellation");
 });
 
 // ---------------------------------------------------------------------------
 // send / interrupt
 // ---------------------------------------------------------------------------
 
-test("send: owned pane, text+Enter via pane run", async () => {
+test("send: any pane, text+Enter via pane run; no console by default", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("send", { target: "wF:p9", text: "ls" });
+  const r = await svc.execute("send", { pane: "wF:p9", text: "ls" });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "sent");
+  assert.equal(r.delivery, "not_applicable", "raw send has no lifecycle delivery");
   const runCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "run")!;
   assert.deepEqual(runCall.args.slice(2, 4), ["wF:p9", "ls"]);
+  assert.equal(r.console, undefined, "no console by default (raw send)");
+  const agentReads = world.calls.filter((c) => c.args[1] === "read");
+  assert.equal(agentReads.length, 0, "no console read without returnLines");
+});
+
+test("send: console disabled with returnLines=0 (explicit)", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("send", { pane: "wF:p9", text: "ls", returnLines: 0 });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, "sent");
+  assert.equal(r.console, undefined, "no console when returnLines=0");
+  const agentReads = world.calls.filter((c) => c.args[1] === "read");
+  assert.equal(agentReads.length, 0, "no console read with returnLines=0");
+});
+
+test("send: optional console observation with returnLines", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("send", { pane: "wF:p9", text: "ls", returnLines: 10 });
+  assert.equal(r.ok, true);
+  assert.ok(r.console?.includes("worker output"), "optional console observation");
 });
 
 test("send: multi-line rejected (unverified in 0.9.3)", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
-  const r = await svc.execute("send", { target: "wF:p9", text: "line1\nline2" });
+  const r = await svc.execute("send", { pane: "wF:p9", text: "line1\nline2" });
   assert.equal(r.ok, false);
   assert.equal(r.code, "multiline_unverified");
 });
 
-test("send: external pane requires allowExternal and stays in workspace", async () => {
-  const world = worldWithWorker();
-  world.addAgent("wF:p77", "wF");
-  const svc = makeService(world);
-  const denied = await svc.execute("send", { target: "wF:p77", text: "ls" });
-  assert.equal(denied.ok, false);
-  assert.equal(denied.code, "external_target");
-  const allowed = await svc.execute("send", { target: "wF:p77", text: "ls", allowExternal: true });
-  assert.equal(allowed.ok, true);
-});
-
-test("send: external pane in another workspace is denied even with opt-in", async () => {
+test("send: cross-workspace pane works (no workspace gate)", async () => {
   const world = worldWithWorker();
   world.addAgent("wZ:p1", "wZ");
   const svc = makeService(world);
-  const r = await svc.execute("send", { target: "wZ:p1", text: "ls", allowExternal: true });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "outside_workspace");
+  const r = await svc.execute("send", { pane: "wZ:p1", text: "ls" });
+  assert.equal(r.ok, true, "explicit pane addressing is not workspace-gated");
 });
 
-test("interrupt: uses esc, never ctrl+d", async () => {
+test("interrupt: uses esc, never ctrl+d; reports observed status", async () => {
   const world = worldWithWorker();
   world.agents.get("wF:p9")!.status = "working";
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("interrupt", { target: "wF:p9" });
+  const r = await svc.execute("interrupt", { pane: "wF:p9" });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "interrupted");
   const keysCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "send-keys")!;
   assert.equal(keysCall.args[3], "esc");
   assert.ok(!world.calls.some((c) => c.args.includes("ctrl+d")), "ctrl+d never sent");
+  assert.ok(r.hint?.includes("no guaranteed-abort claim"));
 });
 
-test("self-control denied for send/interrupt/close/prompt", async () => {
+test("self-control denied for prompt/wait/send/interrupt/close", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
   for (const [op, args] of [
-    ["send", { target: "wF:p1", text: "x" }],
-    ["interrupt", { target: "wF:p1" }],
-    ["close", { target: "wF:p1" }],
-    ["prompt", { target: "wF:p1", task: "x" }],
+    ["send", { pane: "wF:p1", text: "x" }],
+    ["interrupt", { pane: "wF:p1" }],
+    ["close", { pane: "wF:p1" }],
+    ["prompt", { pane: "wF:p1", prompt: "x" }],
+    ["wait", { pane: "wF:p1" }],
   ] as const) {
     const r = await svc.execute(op, { ...args });
     assert.equal(r.ok, false, `${op} self-control`);
@@ -1448,96 +1629,31 @@ test("self-control denied for send/interrupt/close/prompt", async () => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// ownership: verification, reload, id reuse
-// ---------------------------------------------------------------------------
-
-test("ownership: live verification passes for matching identity", async () => {
+test("ownership is informational: non-owned panes are still controllable", async () => {
   const world = worldWithWorker();
+  world.addAgent("wF:p77", "wF");
   const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: a.terminalId, name: "otto" }]);
-  world.agents.get("wF:p9")!.name = "otto";
-  const r = await svc.execute("read", { target: "wF:p9" });
-  assert.equal(r.ok, true);
-  assert.equal(svc.getOwned().length, 1, "ownership retained after verified use");
-});
-
-test("ownership: renamed away -> ownership lost, control denied", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: a.terminalId, name: "otto" }]);
-  world.agents.get("wF:p9")!.name = "someone_else";
-  const r = await svc.execute("interrupt", { target: "wF:p9" });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "ownership_lost");
-  assert.equal(r.code, "name_mismatch");
-  assert.equal(svc.getOwned().length, 0, "stale record removed");
-});
-
-test("ownership: terminal id reuse -> not owned", async () => {
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: "term_original" }]);
-  const r = await svc.execute("interrupt", { target: "wF:p9" });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "ownership_lost");
-  assert.equal(r.code, "terminal_id_mismatch");
-});
-
-test("ownership: agent undetectable (dead worker) -> not owned", async () => {
-  const world = worldWithWorker();
-  world.killAgent("wF:p9");
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("interrupt", { target: "wF:p9" });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "ownership_lost");
-  assert.equal(r.code, "agent_not_detected");
-});
-
-test("ownership: reload/restore round-trip", async () => {
-  ensureScriptsDir();
-  const world = worldWithWorker();
-  const svc = makeService(world);
-  const a = world.agents.get("wF:p9")!;
-  svc.restoreOwned([
-    { pane_id: "wF:p9", workspace_id: "wF", terminal_id: a.terminalId, name: "otto", launched_at: 123, session: "wF:p1" },
-    { pane_id: "wF:p1", workspace_id: "wF" },
-    "garbage",
-    null,
-    { pane_id: "no-workspace" },
-  ]);
-  assert.equal(svc.getOwned().length, 2, "invalid records skipped");
-  const reloaded = new SubagentService({
-    transport: makeTransport(world),
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  reloaded.restoreOwned(svc.getOwned());
-  assert.deepEqual(
-    reloaded.getOwned().map((r) => r.pane_id).sort(),
-    ["wF:p1", "wF:p9"],
-  );
+  const r = await svc.execute("prompt", { pane: "wF:p77", prompt: "hi", wait: false });
+  assert.equal(r.ok, true, "non-tracked pane prompt is not denied (provenance is not authority)");
+  assert.equal(r.owned, false, "ownership is reported informationally");
 });
 
 // ---------------------------------------------------------------------------
-// close
+// close: verified absence, idempotence
 // ---------------------------------------------------------------------------
 
-test("close: owned pane, idempotent + absence verified", async () => {
+test("close: tracked pane, idempotent + absence verified; verifiedAbsent=true", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
   svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("close", { target: "wF:p9" });
+  const r = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(r.ok, true);
   assert.equal(r.outcome, "closed");
+  assert.equal(r.verifiedAbsent, true, "close returns verified absence");
+  assert.equal(r.console, undefined, "close returns no console tail");
   assert.equal(svc.getOwned().length, 0, "ownership record removed");
   const closeCallsAfterFirst = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
-  // Second close: already-gone tombstone should still return success without
-  // needing new external opt-in.
-  const r2 = await svc.execute("close", { target: "wF:p9" });
+  const r2 = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(r2.ok, true);
   assert.equal(r2.outcome, "closed");
   assert.equal(r2.code, "pane_not_found", "idempotent close of a gone pane is success");
@@ -1545,56 +1661,51 @@ test("close: owned pane, idempotent + absence verified", async () => {
   assert.equal(closeCallsAfterSecond, closeCallsAfterFirst, "repeated close of a retired id does not issue a new pane close");
 });
 
-test("close: tombstoned id that reappears requires externalConfirmed", async () => {
+test("close: non-tracked pane can be closed directly (no UI/opt-in gate)", async () => {
   const world = worldWithWorker();
+  world.addAgent("wF:p77", "wF");
   const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const first = await svc.execute("close", { target: "wF:p9" });
-  assert.equal(first.ok, true);
-  world.addAgent("wF:p9", "wF");
-  const closeCallsBeforeDenied = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
-  const denied = await svc.execute("close", { target: "wF:p9" });
-  assert.equal(denied.ok, false);
-  assert.equal(denied.code, "external_target");
-  const closeCallsAfterDenied = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
-  assert.equal(closeCallsAfterDenied, closeCallsBeforeDenied, "reused retired id is not closed without fresh external opt-in");
-  const allowed = await svc.execute("close", { target: "wF:p9", externalConfirmed: true });
-  assert.equal(allowed.ok, true);
+  const r = await svc.execute("close", { pane: "wF:p77" });
+  assert.equal(r.ok, true, "non-owned close no longer requires an opt-in or UI confirmation");
+  assert.equal(r.outcome, "closed");
+  assert.equal(r.verifiedAbsent, true);
 });
 
-test("close: retired probe server failure does not claim absence or authorize mutation", async () => {
+test("close: tombstoned id that reappears is closed as a fresh pane", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
   svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const first = await svc.execute("close", { target: "wF:p9" });
+  const first = await svc.execute("close", { pane: "wF:p9" });
+  assert.equal(first.ok, true);
+  world.addAgent("wF:p9", "wF");
+  const closeCallsBefore = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
+  const r = await svc.execute("close", { pane: "wF:p9" });
+  assert.equal(r.ok, true, "reused id with a live pane is closed (stale bookkeeping never vetoes explicit addressing)");
+  const closeCallsAfter = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
+  assert.equal(closeCallsAfter, closeCallsBefore + 1, "a real pane close was issued for the reused id");
+});
+
+test("close: retired probe server failure does not claim absence or proceed", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
+  const first = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(first.ok, true);
   world.failCommands.push({ match: /^pane get wF:p9$/, code: "server_not_running", message: "no server" });
   const closeCallsBefore = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
-  const r = await svc.execute("close", { target: "wF:p9" });
+  const r = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(r.ok, false);
   assert.equal(r.code, "server_not_running");
   const closeCallsAfter = world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "close").length;
   assert.equal(closeCallsAfter, closeCallsBefore, "failed retired probe does not proceed to pane close");
 });
 
-test("close: external pane requires externalConfirmed", async () => {
+test("close: server error does NOT claim absence, tracked ownership retained", async () => {
   const world = worldWithWorker();
-  world.addAgent("wF:p77", "wF");
-  const svc = makeService(world);
-  const denied = await svc.execute("close", { target: "wF:p77" });
-  assert.equal(denied.ok, false);
-  assert.equal(denied.code, "external_target");
-  const allowed = await svc.execute("close", { target: "wF:p77", externalConfirmed: true });
-  assert.equal(allowed.ok, true);
-});
-
-test("close: server error does NOT claim absence, ownership retained", async () => {
-  const world = worldWithWorker();
-  // The close call itself fails with a server error (not pane_not_found).
   world.failCommands.push({ match: /^pane close wF:p9/, code: "server_not_running", message: "no server" });
   const svc = makeService(world);
   svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("close", { target: "wF:p9" });
+  const r = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(r.ok, false, "server error is never a success");
   assert.notEqual(r.outcome, "closed", "must not claim the pane is closed");
   assert.equal(r.code, "server_not_running");
@@ -1603,8 +1714,6 @@ test("close: server error does NOT claim absence, ownership retained", async () 
 
 test("close: non-typed verify failure (server down) retains ownership, no absence claim", async () => {
   const world = worldWithWorker();
-  // Only the POST-close absence verify sees the server error; the ownership
-  // access-check (an earlier `pane get`) must succeed so close actually runs.
   let serverDown = false;
   const base = makeTransport(world);
   const svc = new SubagentService({
@@ -1612,8 +1721,6 @@ test("close: non-typed verify failure (server down) retains ownership, no absenc
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "pane" && args[1] === "close") {
           const r = await base.run(args, options);
-          // After close succeeds, the server goes down: the subsequent
-          // `pane get` (absence verify) now returns a non-typed server error.
           serverDown = true;
           return r;
         }
@@ -1632,7 +1739,7 @@ test("close: non-typed verify failure (server down) retains ownership, no absenc
   });
   ensureScriptsDir();
   svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("close", { target: "wF:p9" });
+  const r = await svc.execute("close", { pane: "wF:p9" });
   assert.equal(r.ok, false, "unverified absence is not a success");
   assert.equal(r.outcome, "error");
   assert.equal(r.phase, "verify");
@@ -1644,34 +1751,67 @@ test("close: non-typed verify failure (server down) retains ownership, no absenc
 // list / spaces
 // ---------------------------------------------------------------------------
 
-test("list: joins agent names/status by pane id", async () => {
+test("list: current workspace joins agent names/status by pane id; ownership informational", async () => {
   const world = worldWithWorker();
   world.agents.get("wF:p9")!.name = "otto";
   world.agents.get("wF:p9")!.status = "working";
   const svc = makeService(world);
+  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
+  world.addAgent("wF:p77", "wF");
   const r = await svc.execute("list", {});
   assert.equal(r.ok, true);
   assert.equal(r.phase, "list");
-  const items = JSON.parse(r.detail!) as Array<{ pane_id: string; name: string | null; agent_status: string }>;
+  assert.equal(r.workspace, "wF");
+  const items = r.items! as Array<{ pane_id: string; name: string | null; agent_status: string; owned: boolean; workspace_id: string | null; cwd: string | null }>;
   const p9 = items.find((i) => i.pane_id === "wF:p9")!;
   assert.equal(p9.name, "otto");
   assert.equal(p9.agent_status, "working");
+  assert.equal(p9.owned, true, "ownership reported informationally");
+  const p77 = items.find((i) => i.pane_id === "wF:p77")!;
+  assert.equal(p77.owned, false);
   const p1 = items.find((i) => i.pane_id === "wF:p1")!;
   assert.equal(p1.name, null, "unrenamed pane has null name");
 });
 
-test("spaces: workspace list mapped to plain JSON", async () => {
+test("list: explicit workspace id uses pane list --workspace <id>", async () => {
+  const world = worldWithWorker();
+  world.addAgent("wZ:p1", "wZ");
+  const svc = makeService(world);
+  const r = await svc.execute("list", { workspace: "wZ" });
+  assert.equal(r.ok, true);
+  const listCall = world.calls.find((c) => c.args[0] === "pane" && c.args[1] === "list")!;
+  assert.equal(listCall.args[listCall.args.indexOf("--workspace") + 1], "wZ");
+  assert.ok((r.items ?? []).length >= 1);
+});
+
+test("list: workspace=all lists panes across all workspaces", async () => {
+  const world = worldWithWorker();
+  world.addAgent("wZ:p1", "wZ");
+  const svc = makeService(world);
+  const r = await svc.execute("list", { workspace: "all" });
+  assert.equal(r.ok, true);
+  assert.equal(r.workspace, "all");
+  const panes = (r.items ?? []).map((i) => (i as { pane_id: string }).pane_id).sort();
+  assert.ok(panes.includes("wF:p9") && panes.includes("wZ:p1"));
+});
+
+test("list: invalid workspace rejected", async () => {
+  const world = worldWithWorker();
+  const svc = makeService(world);
+  const r = await svc.execute("list", { workspace: 42 as unknown as string });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "invalid_workspace");
+});
+
+test("spaces: workspace list mapped to structured items", async () => {
   const world = worldWithWorker();
   world.addPanes(["wZ:p1"], "wZ");
   const svc = makeService(world);
   const r = await svc.execute("spaces", {});
   assert.equal(r.ok, true);
-  const items = JSON.parse(r.detail!) as Array<{ workspace_id: string; label: string | null }>;
+  const items = r.items! as Array<{ workspace_id: string | null; label: string | null }>;
   const ids = items.map((i) => i.workspace_id).sort();
   assert.ok(ids.includes("wF") && ids.includes("wZ"));
-  for (const item of items) {
-    assert.equal(typeof JSON.stringify(item), "string");
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1680,47 +1820,14 @@ test("spaces: workspace list mapped to plain JSON", async () => {
 
 test("abort: pre-call abort -> cancelled, no herdr call", async () => {
   const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "unknown";
   const svc = makeService(world);
   const controller = new AbortController();
   controller.abort();
-  const r = await svc.execute("read", { target: "wF:p9" }, controller.signal);
+  const r = await svc.execute("read", { pane: "wF:p9" }, controller.signal);
   assert.equal(r.ok, false);
   assert.equal(r.outcome, "cancelled");
   assert.equal(r.code, "aborted");
   assert.equal(world.calls.length, 0, "aborted before any herdr call");
-});
-
-test("abort: abort during wait -> cancelled, worker untouched", async () => {
-  ensureScriptsDir();
-  const world = worldWithWorker();
-  world.agents.get("wF:p9")!.status = "working";
-  const svc = makeService(world);
-  const controller = new AbortController();
-  const base = makeTransport(world);
-  const svc2 = new SubagentService({
-    transport: {
-      async run(args: string[], options?: TransportOptions) {
-        if (args[0] === "agent" && args[1] === "wait") {
-          await new Promise<void>((resolve, reject) => {
-            options?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
-            setTimeout(resolve, 500);
-          });
-        }
-        return base.run(args, options);
-      },
-    },
-    paneId: "wF:p1",
-    runtimeDir: FAKE_SCRIPTS_DIR,
-    defaults: { detectionMs: 500, finishWaitMs: 5000, maxWaitMs: 60_000 },
-  });
-  const p = svc2.execute("wait", { target: "wF:p9", timeoutMs: 4000 }, controller.signal);
-  setTimeout(() => controller.abort(), 50);
-  const r = await p;
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "cancelled");
-  assert.equal(r.code, "aborted");
-  assert.equal(world.agents.get("wF:p9")!.alive, true, "worker not touched by cancellation");
 });
 
 test("abort: abort during detection -> cancelled with pane surfaced", async () => {
@@ -1732,7 +1839,7 @@ test("abort: abort during detection -> cancelled with pane surfaced", async () =
   const controller = new AbortController();
   const p = svc.execute(
     "start",
-    { name: "a", cwd: process.cwd(), task: "t", waitMode: "none" },
+    { name: "a", cwd: process.cwd(), task: "t" },
     controller.signal,
   );
   setTimeout(() => controller.abort(), 80);
@@ -1740,7 +1847,7 @@ test("abort: abort during detection -> cancelled with pane surfaced", async () =
   assert.equal(r.ok, false);
   assert.equal(r.outcome, "cancelled");
   assert.equal(r.phase, "detection");
-  assert.ok(r.pane_id, "pane id kept available for inspection");
+  assert.ok(r.pane, "pane id kept available for inspection");
 });
 
 // ---------------------------------------------------------------------------
@@ -1776,24 +1883,178 @@ test("errors: spawn failure -> transport_error", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// defaults
+// action outcome survives console-read failure (distinct field, no resend)
 // ---------------------------------------------------------------------------
 
-test("defaults: match plan (detection 15s, bounded 30s, finish 30min, max 60min, tails)", () => {
-  assert.equal(DEFAULTS.detectionMs, 15_000);
-  assert.equal(DEFAULTS.boundedWaitMs, 30_000);
-  assert.equal(DEFAULTS.finishWaitMs, 30 * 60_000);
-  assert.equal(DEFAULTS.maxWaitMs, 60 * 60_000);
-  assert.equal(DEFAULTS.tailBoundedChars, 50);
-  assert.equal(DEFAULTS.tailWaitChars, 2000);
-  assert.equal(DEFAULTS.readLines, 100);
+test("prompt: wait success with failing console read keeps the terminal outcome (consoleError separate)", async () => {
+  const world = worldWithWorker();
+  world.failCommands.push({ match: /^agent read /, code: "protocol_mismatch", message: "wrong protocol" });
+  const svc = makeService(world);
+  const result = await svc.execute("prompt", { pane: "wF:p9", prompt: "terminal-tail", wait: true });
+  assert.equal(result.ok, true, "terminal observation remains distinct from successful console retrieval");
+  assert.equal(result.outcome, "terminal_observed");
+  assert.equal(result.status, "done");
+  assert.equal(result.console, undefined);
+  assert.match(result.consoleError ?? "", /protocol_mismatch/, "console failure is a separate field");
+  assert.deepEqual(world.promptText, ["terminal-tail"], "no resend after a console failure");
+});
+
+test("consoleSpread: action status/seq survive a successful raw-fallback console (no clobber)", async () => {
+  // The console read succeeds via the raw fallback (agent read returns
+  // agent_not_found -> pane read, status "unknown"). The action's status
+  // ("done") and seq must survive the consoleSpread.
+  const world2 = worldWithWorker();
+  world2.failCommands.push({ match: /^agent read /, code: "agent_not_found", message: "no agent" });
+  const svc = makeService(world2);
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "clobber-test", wait: true });
+  assert.equal(r.ok, true, "terminal observation");
+  assert.equal(r.outcome, "terminal_observed");
+  assert.equal(r.status, "done", "action status is not clobbered by console fallback status");
+  assert.ok(typeof r.seq === "number" && r.seq > 0, "action seq is preserved");
+  assert.ok(r.console, "console text is present (raw fallback)");
+  assert.equal(r.consoleSource, "raw", "console source is raw fallback");
+});
+
+test("prompt: timeout with failing console read surfaces both honestly", async () => {
+  const world = worldWithWorker();
+  world.promptOutcomes.set("wF:p9", "timeout");
+  world.failCommands.push({ match: /^agent read /, code: "server_not_running", message: "read unavailable" });
+  const svc = makeService(world);
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "one task", wait: true, timeoutMs: 100 });
+  assert.equal(r.outcome, "timeout");
+  assert.equal(r.console, undefined);
+  assert.match(r.consoleError ?? "", /console read failed \(server_not_running\): read unavailable/);
+  assert.equal(r.delivery, "unknown");
+  assert.deepEqual(world.promptText, ["one task"], "exactly one send");
+});
+
+test("wait: timeout with failing console read keeps the timeout outcome", async () => {
+  const world = worldWithWorker();
+  world.panesAlive.add("wF:p9");
+  world.agents.get("wF:p9")!.status = "working";
+  world.scripts.set("wF:p9", ["TIMEOUT"]);
+  world.failCommands.push({ match: /^agent read /, code: "server_not_running", message: "no" });
+  const svc = makeService(world);
+  const r = await svc.execute("wait", { pane: "wF:p9", timeoutMs: 50 });
+  assert.equal(r.outcome, "timeout");
+  assert.equal(r.console, undefined);
+  assert.match(r.consoleError ?? "", /server_not_running/);
 });
 
 // ---------------------------------------------------------------------------
-// sampler / listener cleanup (bounded prompt does not poll forever)
+// start: managed-Pi readiness (launch-specific)
 // ---------------------------------------------------------------------------
 
-test("prompt: sampler is reaped when the bounded prompt returns (no 30-min polling)", async () => {
+test("start: screen-detected Pi idle is not readiness; prompt only after managed session", async () => {
+  ensureScriptsDir();
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  const base = makeTransport(world);
+  let ready = false;
+  let gets = 0;
+  const svc = new SubagentService({
+    transport: {
+      async run(args, options) {
+        if (args[0] === "agent" && args[1] === "prompt") assert.equal(ready, true, "never type into startup draft handler");
+        const res = await base.run(args, options);
+        if (args[0] !== "agent" || args[1] !== "get" || args[2] !== "wF:p2") return res;
+        gets++;
+        if (gets > 2) {
+          ready = true;
+          return res;
+        }
+        const doc = JSON.parse(res.stdout);
+        delete doc.result.agent.agent_session;
+        return { ...res, stdout: JSON.stringify(doc) };
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+  });
+  const r = await svc.execute("start", { name: "ready", cwd: process.cwd(), task: "test" });
+  assert.equal(r.ok, true);
+  assert.ok(gets >= 3);
+  assert.equal(world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "run").length, 1);
+  assert.equal(world.calls.filter((c) => c.args[0] === "agent" && c.args[1] === "prompt").length, 1);
+});
+
+test("start: heuristic idle without managed session times out, no task or duplicate launch", async () => {
+  ensureScriptsDir();
+  const world = new FakeWorld();
+  world.addPanes(["wF:p1"], "wF");
+  const base = makeTransport(world);
+  let clock = 0;
+  const svc = new SubagentService({
+    transport: {
+      async run(args, options) {
+        const res = await base.run(args, options);
+        if (args[0] !== "agent" || args[1] !== "get" || args[2] !== "wF:p2") return res;
+        clock += 100;
+        const doc = JSON.parse(res.stdout);
+        doc.result.agent.agent_session.source = "screen";
+        return { ...res, stdout: JSON.stringify(doc) };
+      },
+    },
+    paneId: "wF:p1",
+    runtimeDir: FAKE_SCRIPTS_DIR,
+    now: () => clock,
+    defaults: { detectionMs: 100 },
+  });
+  const r = await svc.execute("start", { name: "unready", cwd: process.cwd(), task: "test" });
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, "detection_timeout");
+  assert.equal(r.owned, true);
+  assert.equal(r.delivery, "not_sent");
+  assert.equal(world.calls.filter((c) => c.args[0] === "pane" && c.args[1] === "run").length, 1);
+  assert.equal(world.calls.filter((c) => c.args[0] === "agent" && c.args[1] === "prompt").length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// prompt: wait with nonterminal CLI payload is not a terminal observation
+// ---------------------------------------------------------------------------
+
+test("prompt: successful CLI wait with nonterminal payload is not a terminal observation", async () => {
+  const world = worldWithWorker();
+  const base = makeTransport(world);
+  const svc = makeService(world, {
+    transport: {
+      async run(args: string[], options?: TransportOptions) {
+        const result = await base.run(args, options);
+        if (args[0] === "agent" && args[1] === "prompt") {
+          const document = JSON.parse(result.stdout);
+          document.result.agent.agent_status = "working";
+          return { ...result, stdout: JSON.stringify(document) };
+        }
+        return result;
+      },
+    },
+  });
+  const result = await svc.execute("prompt", { pane: "wF:p9", prompt: "nonterminal-receipt", wait: true });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "unexpected_wait_state");
+  assert.equal(result.status, "working");
+  assert.equal(result.delivery, "acknowledged", "submission still acknowledged");
+});
+
+// ---------------------------------------------------------------------------
+// defaults
+// ---------------------------------------------------------------------------
+
+test("defaults: match the 0.2.0 contract", () => {
+  assert.equal(DEFAULTS.detectionMs, 15_000);
+  assert.equal(DEFAULTS.waitMs, 1_800_000);
+  assert.equal(DEFAULTS.maxWaitMs, 3_600_000);
+  assert.equal(DEFAULTS.consoleLines, 100);
+  assert.equal(DEFAULTS.consoleChars, 8_000);
+  assert.equal(DEFAULTS.maxConsoleLines, 500);
+  assert.equal(DEFAULTS.maxConsoleChars, 50_000);
+});
+
+// ---------------------------------------------------------------------------
+// sampler / listener cleanup (wait prompt does not poll forever)
+// ---------------------------------------------------------------------------
+
+test("prompt: sampler is reaped when the wait prompt returns (no 30-min polling)", async () => {
   const world = worldWithWorker();
   let getAfterPrompt = 0;
   let promptReturned = false;
@@ -1802,7 +2063,6 @@ test("prompt: sampler is reaped when the bounded prompt returns (no 30-min polli
     transport: {
       async run(args: string[], options?: TransportOptions) {
         if (args[0] === "agent" && args[1] === "get" && promptReturned) {
-          // Count sampler get calls issued AFTER the prompt returned.
           getAfterPrompt += 1;
         }
         if (args[0] === "agent" && args[1] === "prompt") {
@@ -1815,14 +2075,11 @@ test("prompt: sampler is reaped when the bounded prompt returns (no 30-min polli
     },
     paneId: "wF:p1",
     runtimeDir: FAKE_SCRIPTS_DIR,
-    defaults: { detectionMs: 500, boundedWaitMs: 200, finishWaitMs: 5000, maxWaitMs: 60_000 },
+    defaults: { detectionMs: 500, waitMs: 200, maxWaitMs: 60_000 },
   });
   ensureScriptsDir();
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "hi", waitMode: "bounded", timeoutMs: 60_000 });
-  assert.equal(r.ok, true, "bounded prompt reaches a terminal state");
-  // Give any (incorrectly) running sampler a moment to poll, then assert it
-  // did not.
+  const r = await svc.execute("prompt", { pane: "wF:p9", prompt: "hi", wait: true, timeoutMs: 60_000 });
+  assert.equal(r.ok, true, "wait prompt reaches a terminal state");
   await new Promise((res) => setTimeout(res, 400));
   assert.equal(getAfterPrompt, 0, "sampler stopped polling after the prompt returned");
 });
@@ -1830,8 +2087,6 @@ test("prompt: sampler is reaped when the bounded prompt returns (no 30-min polli
 // ---------------------------------------------------------------------------
 // process transport (meaningful node:child_process tests)
 // ---------------------------------------------------------------------------
-
-import { HerdrTransport, TransportError } from "../src/transport.js";
 
 test("transport: awaits close and captures stdout of a real command", async () => {
   const t = new HerdrTransport("node");
@@ -1842,14 +2097,12 @@ test("transport: awaits close and captures stdout of a real command", async () =
 });
 
 test("transport: a multi-byte UTF-8 char SPLIT across two delayed writes decodes correctly", async () => {
-  // 🧵 is 4 bytes (f0 9f a7 b5). Written as two separate 2-byte chunks with a
-  // delay, the sequence straddles a chunk boundary; a byte-slice decoder would
-  // corrupt it, a shared StringDecoder must not.
   const fs = await import("node:fs");
   const file = `${process.cwd()}/.fk-split-${process.pid}.js`;
-  fs.writeFileSync(file, `const b=Buffer.from([0xf0,0x9f,0xa7,0xb5]);\n` +
-    `process.stdout.write(b.subarray(0,2));\n` +
-    `setTimeout(()=>process.stdout.write(b.subarray(2)),30);\n`);
+  fs.writeFileSync(
+    file,
+    `const b=Buffer.from([0xf0,0x9f,0xa7,0xb5]);\nprocess.stdout.write(b.subarray(0,2));\nsetTimeout(()=>process.stdout.write(b.subarray(2)),30);\n`,
+  );
   const t = new HerdrTransport("node");
   try {
     const r = await t.run([file], { timeoutMs: 5_000 });
@@ -1902,7 +2155,6 @@ test("transport: a non-existent command yields a typed SpawnError, not a false s
     () => t.run(["--version"], { timeoutMs: 5_000 }),
     (err: unknown) => err instanceof TransportError && err.name === "SpawnError",
   );
-  // Must settle promptly (the error event fires), not hang to the timeout.
   assert.ok(Date.now() - t0 < 4_000, "spawn error settled without waiting for the timeout");
 });
 
@@ -1920,44 +2172,32 @@ test("transport: repeated runs sharing one AbortSignal do not leak abort listene
 });
 
 test("transport: combined stdout+stderr overflow kills + reaps a hanging producer promptly", async () => {
-  // The producer keeps writing (hanging) but the COMBINED byte cap is small.
-  // Overflow must kill+reap the child promptly (not wait out the timeout) and
-  // report the overflow as the reason.
   const t = new HerdrTransport("node");
   const t0 = Date.now();
   await assert.rejects(
     () =>
-      t.run(
-        ["-e", "setInterval(()=>{process.stdout.write('x'.repeat(64));}, 10);"],
-        { timeoutMs: 30_000, maxBytes: 512 },
-      ),
+      t.run(["-e", "setInterval(()=>{process.stdout.write('x'.repeat(64));}, 10);"], {
+        timeoutMs: 30_000,
+        maxBytes: 512,
+      }),
     (err: unknown) => err instanceof TransportError && err.name === "OutputOverflowError",
   );
   assert.ok(Date.now() - t0 < 2_000, "overflow killed and reaped the child promptly, not on the timeout");
 });
 
 test("transport: a child killed by an external signal is NOT mislabelled a timeout", async () => {
-  // A child killed by an arbitrary signal (SIGSEGV) that the transport never
-  // sent must NOT be attributed to a timeout. Only the timer's own SIGKILL may
-  // be labelled a TimeoutError. The child writes its pid to a scratch file so
-  // we can kill it externally.
   const fs = await import("node:fs");
   const pidFile = `${process.cwd()}/.fk-pid-${process.pid}`;
-
   const t = new HerdrTransport("node");
-  // The child prints its pid, writes the pid file, then hangs until killed.
   const script = `const fs=require('fs');fs.writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setTimeout(()=>{},60000);`;
   const p = t.run(["-e", script], { timeoutMs: 30_000 });
-
-  // Wait until the pid file exists, then kill the child with SIGSEGV.
   let pid: number | null = null;
   for (let i = 0; i < 100 && pid === null; i++) {
     await new Promise((r) => setTimeout(r, 20));
     if (fs.existsSync(pidFile)) pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
   }
   assert.ok(pid !== null, "child wrote its pid");
-  process.kill(pid!, "SIGSEGV"); // an arbitrary signal, not the transport's SIGKILL
-
+  process.kill(pid!, "SIGSEGV");
   let outcome: string;
   try {
     await p;
@@ -1967,22 +2207,12 @@ test("transport: a child killed by an external signal is NOT mislabelled a timeo
   } finally {
     fs.rmSync(pidFile, { force: true });
   }
-  assert.ok(
-    outcome !== "TimeoutError",
-    `an externally signalled child must not be a TimeoutError (got ${outcome})`,
-  );
+  assert.ok(outcome !== "TimeoutError", `an externally signalled child must not be a TimeoutError (got ${outcome})`);
 });
 
 // ---------------------------------------------------------------------------
 // error-envelope stream boundary (transport preserves streams; core decodes)
 // ---------------------------------------------------------------------------
-
-// The pinned live contract (docs/evidence/stageA_agent_probe.json):
-//   success -> JSON envelope on stdout (code 0, stderr empty)
-//   typed error -> JSON envelope on STDERR (code 1, stdout empty)
-// The transport must preserve both raw streams; the core protocol boundary
-// must decode the failure envelope from stderr and the success envelope from
-// stdout. These regressions pin that split.
 
 const RAW = { exitCode: 0, signal: null, stdout: "", stderr: "" };
 
@@ -2016,8 +2246,8 @@ function serviceWithEnvelope(
         if (args[0] === "agent" && args[1] === "read" && args[2] === "wF:p9") {
           return {
             ...RAW,
-            exitCode: success ? 0 : (failure?.code ?? 1),
-            stdout: success ? success.stdout : (failure?.stdout ?? ""),
+            exitCode: success ? 0 : failure?.code ?? 1,
+            stdout: success ? success.stdout : failure?.stdout ?? "",
             stderr: success ? success.stderr ?? "" : failure!.stderr,
           };
         }
@@ -2040,11 +2270,10 @@ test("envelope: typed error on stderr (exit 1, empty stdout) decodes to the type
       stderr: JSON.stringify({ id: "cli:agent:get", error: { code: "agent_not_found", message: "agent target wF:p9 not found" } }),
     },
   );
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("read", { target: "wF:p9" });
+  const r = await svc.execute("read", { pane: "wF:p9", source: "agent" });
   assert.equal(r.ok, false, "a non-zero exit is not ok");
-  assert.equal(r.code, "agent_not_found", "the typed code comes from the stderr envelope");
-  assert.equal(r.outcome, "error");
+  assert.equal(r.code, "console_read_failed", "the typed code is surfaced in the read failure");
+  assert.match(r.detail ?? "", /agent_not_found/);
 });
 
 test("envelope: success text + diagnostic stderr stay distinct (stderr never misread as error)", async () => {
@@ -2052,26 +2281,22 @@ test("envelope: success text + diagnostic stderr stay distinct (stderr never mis
   world.addAgent("wF:p9", "wF", { status: "idle" });
   const successStdout = JSON.stringify({
     id: "cli:agent:get",
-    result: { type: "agent_info", agent: { agent: "pi", agent_status: "idle", state_change_seq: 1, pane_id: "wF:p9", workspace_id: "wF", terminal_id: "term_env_p9", name: null } },
+    result: {
+      type: "agent_info",
+      agent: { agent: "pi", agent_status: "idle", state_change_seq: 1, pane_id: "wF:p9", workspace_id: "wF", terminal_id: "term_env_p9", name: null },
+    },
   });
-  // Diagnostics on stderr that is NOT a typed error envelope (just warning prose).
-  const svc = serviceWithEnvelope(
-    makeTransport(world),
-    { stdout: successStdout, stderr: "warning: some diagnostic noise" },
-    undefined,
-  );
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("read", { target: "wF:p9" });
+  const svc = serviceWithEnvelope(makeTransport(world), { stdout: successStdout, stderr: "warning: some diagnostic noise" }, undefined);
+  const r = await svc.execute("read", { pane: "wF:p9" });
   assert.equal(r.ok, true, "success on exit 0 is ok despite diagnostic stderr");
   assert.equal(r.outcome, "read", "the stdout envelope drives the result, not the stderr");
 });
 
 test("envelope: transport preserves raw stdout/stderr exactly (no rewrite)", async () => {
   const t = new HerdrTransport("node");
-  const r = await t.run(
-    ["-e", "process.stderr.write('err-json'); process.stdout.write('out-text'); process.exitCode = 3;"],
-    { timeoutMs: 5_000 },
-  );
+  const r = await t.run(["-e", "process.stderr.write('err-json'); process.stdout.write('out-text'); process.exitCode = 3;"], {
+    timeoutMs: 5_000,
+  });
   assert.equal(r.stdout, "out-text", "stdout preserved verbatim");
   assert.equal(r.stderr, "err-json", "stderr preserved verbatim (not folded into stdout)");
   assert.equal(r.exitCode, 3);
@@ -2097,10 +2322,8 @@ test("envelope: signal-terminated run is NOT false success (exitCode null + sign
   } finally {
     fs.rmSync(pidFile, { force: true });
   }
-  // A signal-terminated run must NOT report exitCode 0 (the old `?? 0` bug).
   assert.equal(resolved!.exitCode, null, "no exit code is produced when signalled");
   assert.equal(resolved!.signal, "SIGSEGV", "the terminating signal is surfaced");
-  // The protocol boundary must treat this as not-ok, not as a successful envelope.
   const world = envWorld();
   world.addAgent("wF:p9", "wF", { status: "idle" });
   const svc = new SubagentService({
@@ -2115,243 +2338,16 @@ test("envelope: signal-terminated run is NOT false success (exitCode null + sign
     paneId: "wF:p1",
     runtimeDir: FAKE_SCRIPTS_DIR,
   });
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("read", { target: "wF:p9" });
+  const r = await svc.execute("read", { pane: "wF:p9", source: "agent" });
   assert.equal(r.ok, false, "a signal-terminated CLI is never a success");
-  assert.equal(r.code, "killed_SIGSEGV", "the signal-termination is surfaced honestly");
+  assert.match(r.detail ?? "", /killed_SIGSEGV/, "the signal-termination is surfaced honestly");
 });
 
-for (const field of ["workspace_id", "terminal_id"] as const) {
-  test(`wait: missing frozen ${field} mid-poll fails closed`, async () => {
-    const world = worldWithWorker();
-    const a = world.agents.get("wF:p9")!;
-    a.status = "idle";
-    a.seq = 234;
-    const base = makeTransport(world);
-    let gets = 0;
-    const svc = new SubagentService({
-      transport: { async run(args, options) {
-        const drop = args[0] === "agent" && args[1] === "get" && args[2] === "wF:p9" && ++gets === 2;
-        if (drop) { a.status = "done"; a.seq = 235; }
-        const res = await base.run(args, options);
-        if (!drop) return res;
-        const doc = JSON.parse(res.stdout);
-        delete doc.result.agent[field];
-        return { ...res, stdout: JSON.stringify(doc) };
-      } },
-      paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR,
-    });
-    const cont = svc.registerContinuation({
-      pane_id: "wF:p9", workspace_id: "wF", terminal_id: a.terminalId,
-      baseline_seq: 234, delivery_confirmed: true, working_observed: false, state: "idle", seq: 234,
-    });
-    const r = await svc.execute("wait", { target: "wF:p9", continuation: cont, timeoutMs: 1000 });
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "identity_mismatch");
-    assert.match(r.hint ?? "", /identity missing/);
-  });
-}
 
-for (const source of ["pane", "agent"] as const) {
-  for (const missing of [true, false]) {
-    test(`ownership: ${source} terminal ${missing ? "missing" : "changed"} denies close without mutation`, async () => {
-      const world = worldWithWorker();
-      const base = makeTransport(world);
-      const svc = new SubagentService({
-        transport: { async run(args, options) {
-          const res = await base.run(args, options);
-          if (args[0] !== source || args[1] !== "get" || args[2] !== "wF:p9") return res;
-          const doc = JSON.parse(res.stdout);
-          if (missing) delete doc.result[source].terminal_id;
-          else doc.result[source].terminal_id = "term_reused";
-          return { ...res, stdout: JSON.stringify(doc) };
-        } },
-        paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR,
-      });
-      svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: world.agents.get("wF:p9")!.terminalId }]);
-      const r = await svc.execute("close", { target: "wF:p9" });
-      assert.equal(r.ok, false);
-      assert.equal(r.code, "terminal_id_mismatch");
-      assert.equal(world.calls.some(c => c.args[0] === "pane" && c.args[1] === "close"), false);
-      assert.equal(world.panesAlive.has("wF:p9"), true);
-    });
-  }
-}
-
-test("prompt: missing baseline/receipt identity retains verified owned identity", async () => {
-  const world = worldWithWorker();
-  const base = makeTransport(world);
-  let gets = 0;
-  const svc = new SubagentService({
-    transport: { async run(args, options) {
-      const res = await base.run(args, options);
-      if (args[0] !== "agent" || args[2] !== "wF:p9") return res;
-      if (args[1] === "get" && ++gets === 1) return res; // ownership proof remains complete
-      const doc = JSON.parse(res.stdout);
-      if (doc.result?.agent) {
-        delete doc.result.agent.workspace_id;
-        delete doc.result.agent.terminal_id;
-      }
-      return { ...res, stdout: JSON.stringify(doc) };
-    } },
-    paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const terminal = world.agents.get("wF:p9")!.terminalId;
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: terminal }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "test", waitMode: "none" });
-  assert.equal(r.ok, true);
-  assert.equal(r.phase, "submission", "executed prompt is not mislabeled as preflight");
-  const cont = getContinuationState(svc, r.continuation!)!;
-  assert.equal(cont.workspace_id, "wF");
-  assert.equal(cont.terminal_id, terminal);
-});
-
-test("start: screen-detected Pi idle is not readiness; prompt only after managed session", async () => {
-  ensureScriptsDir();
-  const world = new FakeWorld();
-  world.addPanes(["wF:p1"], "wF");
-  const base = makeTransport(world);
-  let ready = false;
-  let gets = 0;
-  const svc = new SubagentService({
-    transport: { async run(args, options) {
-      if (args[0] === "agent" && args[1] === "prompt") assert.equal(ready, true, "never type into startup draft handler");
-      const res = await base.run(args, options);
-      if (args[0] !== "agent" || args[1] !== "get" || args[2] !== "wF:p2") return res;
-      gets++;
-      if (gets > 2) { ready = true; return res; }
-      const doc = JSON.parse(res.stdout);
-      delete doc.result.agent.agent_session;
-      return { ...res, stdout: JSON.stringify(doc) };
-    } }, paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  const r = await svc.execute("start", { name: "ready", cwd: process.cwd(), task: "test", waitMode: "none" });
-  assert.equal(r.ok, true);
-  assert.ok(gets >= 3);
-  assert.equal(world.calls.filter(c => c.args[0] === "pane" && c.args[1] === "run").length, 1);
-  assert.equal(world.calls.filter(c => c.args[0] === "agent" && c.args[1] === "prompt").length, 1);
-});
-
-test("start: heuristic idle without managed session times out, no task or duplicate launch", async () => {
-  ensureScriptsDir();
-  const world = new FakeWorld();
-  world.addPanes(["wF:p1"], "wF");
-  const base = makeTransport(world);
-  let clock = 0;
-  const svc = new SubagentService({
-    transport: { async run(args, options) {
-      const res = await base.run(args, options);
-      if (args[0] !== "agent" || args[1] !== "get" || args[2] !== "wF:p2") return res;
-      clock += 100;
-      const doc = JSON.parse(res.stdout);
-      doc.result.agent.agent_session.source = "screen";
-      return { ...res, stdout: JSON.stringify(doc) };
-    } }, paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR, now: () => clock, defaults: { detectionMs: 100 },
-  });
-  const r = await svc.execute("start", { name: "unready", cwd: process.cwd(), task: "test", waitMode: "none" });
-  assert.equal(r.ok, false);
-  assert.equal(r.outcome, "detection_timeout");
-  assert.equal(r.owned, true);
-  assert.equal(world.calls.filter(c => c.args[0] === "pane" && c.args[1] === "run").length, 1);
-  assert.equal(world.calls.filter(c => c.args[0] === "agent" && c.args[1] === "prompt").length, 0);
-});
-
-test("prompt: heuristic idle existing target refuses task without authoritative readiness", async () => {
-  const world = worldWithWorker();
-  const base = makeTransport(world);
-  const svc = new SubagentService({
-    transport: { async run(args, options) {
-      const res = await base.run(args, options);
-      if (args[0] !== "agent" || args[1] !== "get" || args[2] !== "wF:p9") return res;
-      const doc = JSON.parse(res.stdout);
-      delete doc.result.agent.agent_session;
-      return { ...res, stdout: JSON.stringify(doc) };
-    } }, paneId: "wF:p1", runtimeDir: FAKE_SCRIPTS_DIR,
-  });
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF", terminal_id: world.agents.get("wF:p9")!.terminalId }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "do not send", waitMode: "none" });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "agent_not_ready");
-  assert.equal(r.phase, "preflight");
-  assert.equal(world.calls.some(c => c.args[0] === "agent" && c.args[1] === "prompt"), false);
-});
+// ---------------------------------------------------------------------------
+// teardown
+// ---------------------------------------------------------------------------
 
 test("teardown fake scripts", () => {
   rmSync(FAKE_SCRIPTS_DIR, { recursive: true, force: true });
-});
-
-test("prompt: timeout surfaces typed console-read failure without inventing a tail", async () => {
-  const world = worldWithWorker();
-  world.promptOutcomes.set("wF:p9", "timeout");
-  world.failCommands.push({ match: /^agent read wF:p9/, code: "server_not_running", message: "read unavailable" });
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "one task", waitMode: "bounded", timeoutMs: 100, tailChars: 50 });
-  assert.equal(r.outcome, "timeout");
-  assert.equal(r.tail, undefined);
-  assert.match(r.detail ?? "", /console read failed \(server_not_running\): read unavailable/);
-  assert.equal(typeof r.continuation, "string");
-  assert.deepEqual(world.promptText, ["one task"]);
-});
-
-test("prompt: active history refusal reads visible viewport and bounds tail", async () => {
-  const world = worldWithWorker();
-  world.promptOutcomes.set("wF:p9", "timeout");
-  world.failCommands.push({ match: /^agent read wF:p9 .*--source recent-unwrapped/, code: "agent_not_idle", message: "use visible" });
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const r = await svc.execute("prompt", { target: "wF:p9", task: "one task", waitMode: "bounded", timeoutMs: 100, tailChars: 5 });
-  assert.equal(r.outcome, "timeout");
-  assert.equal(r.tail, "🧵 end");
-  assert.match(r.detail ?? "", /visible viewport/);
-  const reads = world.calls.filter(c => c.args[0] === "agent" && c.args[1] === "read");
-  assert.equal(reads.length, 2);
-  assert.equal(reads[1].args[reads[1].args.indexOf("--source") + 1], "visible");
-  assert.deepEqual(world.promptText, ["one task"]);
-});
-
-for (const waitMode of ["finish", "bounded"] as const) {
-  test(`prompt: successful ${waitMode} includes requested code-point console tail`, async () => {
-    const world = worldWithWorker();
-    const svc = makeService(world);
-    svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-    const result = await svc.execute("prompt", { target: "wF:p9", task: "terminal-tail", waitMode, tailChars: 7 });
-    assert.equal(result.ok, true);
-    assert.equal(result.tail, " 🧵🧵 end");
-    assert.equal(Array.from(result.tail!).length, 7);
-    assert.ok(world.calls.some(c => c.args[0] === "agent" && c.args[1] === "read"));
-  });
-}
-
-test("prompt: successful finish exposes genuine console read failure without fabricating tail", async () => {
-  const world = worldWithWorker();
-  world.failCommands.push({ match: /^agent read/, code: "protocol_mismatch", message: "wrong protocol" });
-  const svc = makeService(world);
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const result = await svc.execute("prompt", { target: "wF:p9", task: "terminal-tail", waitMode: "finish" });
-  assert.equal(result.ok, true, "terminal observation remains distinct from successful console retrieval");
-  assert.equal(result.tail, undefined);
-  assert.match(result.detail!, /protocol_mismatch/);
-});
-
-test("prompt: successful CLI wait with nonterminal payload is not a terminal observation", async () => {
-  const world = worldWithWorker();
-  const base = makeTransport(world);
-  const svc = makeService(world, { transport: {
-    async run(args: string[], options?: TransportOptions) {
-      const result = await base.run(args, options);
-      if (args[0] === "agent" && args[1] === "prompt") {
-        const document = JSON.parse(result.stdout);
-        document.result.agent.agent_status = "working";
-        return { ...result, stdout: JSON.stringify(document) };
-      }
-      return result;
-    },
-  } });
-  svc.restoreOwned([{ pane_id: "wF:p9", workspace_id: "wF" }]);
-  const result = await svc.execute("prompt", { target: "wF:p9", task: "nonterminal-receipt", waitMode: "finish" });
-  assert.equal(result.ok, false);
-  assert.equal(result.code, "unexpected_wait_state");
-  assert.equal(result.status, "working");
-  assert.equal(typeof result.continuation, "string", "retain confirmed submission for inspection/re-wait");
 });

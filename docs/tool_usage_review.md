@@ -1,6 +1,6 @@
 # Native subagent tools: verdict and simplification plan
 
-Date: 2026-10-02. **Lead/buddy design agreed; user now authorizes a commit-all checkpoint and implementation by 1–2 controller/reviewer/worker teams.** No push, external runtime deployment, multiplexer adapters or packaging work authorized. The contract below is the agreed implementation target, not yet verified installed behavior.
+Date: 2026-10-02 (design). **Current acceptance/publication authority (2026-10-03):** the user authorizes Firstmate review, scoped commit and normal GitHub push; human testing follows publication. `docs/ergonomic_acceptance.md` owns the current verdict. Historical checkpoint/team discussion below is design provenance, not current execution instructions. External deployment, research changes and packaging remain outside this goal.
 
 ## Working state — living discussion artifact
 
@@ -206,3 +206,59 @@ Correction after the user's final clarification: a generic thin command mapping 
 No external runtime/config/model changes, answer extraction, readonly allowlist expansion, automatic peer cleanup, multiplexer adapters or packaging work in this implementation. Readonly native-tool visibility is an existing host/runtime selection constraint, not justification for another wrapper permission system.
 
 Implementation preflight/verification gates: exact destination-workspace primitives, old-caller inventory for the specified migration, evaluate the chosen output defaults, current host/agent receipt metadata, and narrow self-target execution limitations. Non-Pi native timeout/interrupt semantics remain unverified. These are implementation-planning questions, not reasons to retain the current permission layer. No hidden workaround is proposed as the final state.
+
+## 0.1.x → 0.2.0 Field Map (implementation reference)
+
+This is the authoritative mapping from the 0.1.x parameter surface to the 0.2.0
+flat contract. Legacy fields are rejected by core pre-dispatch validation with a precise
+migration hint before any action. Acknowledgement flags are accepted but ignored.
+
+| Tool | 0.1.x field | 0.2.0 field | Notes |
+|---|---|---|---|
+| all | `target` | `pane` | Sole caller-facing address; no `pane_id` |
+| prompt | `task` | `prompt` | Name reflects the field's role |
+| start, prompt | `waitMode` (none/bounded/finish) | `wait` (boolean) | start defaults `false`, prompt defaults `true` |
+| start, prompt, read, wait, send | `tailChars` | `maxChars` | Consistent with `returnLines` |
+| read | `lines` | `returnLines` | Consistent naming |
+| read | `raw` (boolean) | `source: "raw"` | Explicit source selection: auto/agent/raw |
+| wait | `continuation` (opaque ID) | *(removed)* | Internal pending context is memory-only; no public cursor |
+| send, interrupt, wait | `allowExternal` (boolean) | *(removed)* | Accepted but ignored; ownership is informational only |
+| close | `externalConfirmed` (boolean) | *(removed)* | Accepted but ignored in this transition; explicit pane close needs no ownership or UI approval |
+| start | `timeoutMs` (default 60 min) | `timeoutMs` (default 30 min) | Bounded wait phase; detection is a separate 15 s budget |
+| prompt | `timeoutMs` (default 60 min) | `timeoutMs` (default 30 min) | Bounded wait phase |
+| wait | `timeoutMs` (default 30 min) | `timeoutMs` (default 30 min) | Current-pane observation |
+| start, prompt, read, wait, send | `returnLines` | `returnLines` (new) | Default 100; 0 disables console; send defaults to 0 (no console) |
+| start, prompt, read, wait, send | `maxChars` | `maxChars` (new) | Default 8000; 0 disables character bound |
+
+### Result field changes
+
+| 0.1.x result field | 0.2.0 result field | Notes |
+|---|---|---|
+| `pane_id` | `pane` | Sole caller-facing address |
+| `continuation` (opaque ID) | *(removed)* | No public continuation/cursor |
+| `tail` | `console` | Bounded console text (code-point tailed) |
+| `truncatedTail` | `truncated` | Boolean: console was clipped |
+| `tailSource` | `consoleSource` | agent / visible / raw |
+| — | `consoleError` | Independent console-read failure; never erases the action outcome |
+| — | `delivery` | acknowledged / not_sent / unknown / not_applicable |
+| — | `observation` | terminal_seen_during_submission / state_changed_after_submission / snapshot |
+| — | `submittedWhile` | Pre-submit status for busy submissions |
+| — | `working_observed` | Optional observation, not task proof; true only when working was actually sampled or CLI-reported |
+| — | `verifiedAbsent` | True for close results where absence was verified |
+
+
+## Implemented boundaries (2026-10-03)
+
+Current automated verdict and concrete coverage are in `ergonomic_acceptance.md`.
+Explicit different-workspace **launch** is safely rejected before creation;
+there is no supported destination split primitive in this implementation and no
+focus-changing workaround. Existing explicit-pane operations have no ownership
+or workspace gate. Self prompt/wait would wait for the executing turn; self
+send/interrupt/close can interfere with or terminate the executing process, so
+these execution-limited calls are rejected. Read/list remain available.
+
+The native battery did not establish busy steering or timeout recovery; those
+are automated regressions awaiting human testing. Missing receipt metadata,
+settlement and final console-source/identity corrections are unit-verified, not
+new native proof. Historical completed first-version gates do not upgrade that
+scope. No native non-Pi parity claim is made.

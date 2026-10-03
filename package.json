@@ -1,6 +1,6 @@
 {
   "name": "pi-subagent-herdr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Native Pi tools for safe Herdr subagent supervision",
   "type": "module",
   "private": true,

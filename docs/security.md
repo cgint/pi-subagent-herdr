@@ -21,3 +21,29 @@ Rationale: these advisories describe availability failures in host-controlled pa
 - On a Pi upgrade, verify the published shrinkwrap and the actual installed host tree use `brace-expansion >=5.0.12`, then rerun typechecking, tests, and live acceptance.
 - Keep `npm audit --json` visible. Reassess if the host path changes, a new advisory changes impact, or the extension gains glob handling.
 - Current audit/tree are curated in `docs/evidence/packaging_live.json`; raw mitigation logs remain ephemeral under `agent/`. This document owns the durable decision.
+
+## Security scan review (2026-10-03)
+
+The initial `security_scan.sh` secret scan did **not run**: its installed plugin
+requires `/repo/.gitleaks.toml`, which was absent. “Found ? secrets” was a scanner
+failure, not a finding. The local `.gitleaks.toml` now extends all built-in
+Gitleaks rules without additional allowlists or suppressions. The rerun scanned
+14 local commits and reported no leaks. This historical scan does not cover
+uncommitted content or later fetched history; scan those before publication.
+
+Trivy reported CVE-2026-102276 and CVE-2026-102278 against
+`agent/install-check/package-lock.json`, the scratch installation's
+brace-expansion 5.0.9. These match the already disclosed host-SDK stack-exhaustion
+risk above, not new extension runtime dependencies. Its default scan excludes
+development dependencies; this is not a complete dependency audit. Scanner exit
+2 is retained honestly; no clean vulnerability claim. The existing scoped risk
+acceptance stands; installed host upgrades remain outside this goal. Raw reports
+stay local under `.scan-results/`, not in the publication commit.
+
+Local scanner configuration and raw scanner outputs are not part of the scoped
+source/documentation publication. No vulnerable dependency pin is changed.
+
+Before the adaptation commit, Gitleaks scanned the staged adaptation (~379 KB)
+and all fetched history (17 commits, ~4.38 MB), both exit 0/no leaks found.
+Suppression comments were ignored; reports remain redacted/local. This is a
+bounded scanner observation, not a guarantee that all secrets are absent.
