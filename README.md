@@ -43,7 +43,7 @@ Herdr pane in TUI mode.
 | `subagent_start` | Launch a new worker pane, detect the agent, rename it, deliver the task via `agent prompt` |
 | `subagent_prompt` | Submit a task to an existing worker (pane addressing; busy allowed, blocked = not_sent) |
 | `subagent_read` | Read recent console content (`source`: auto/agent/raw) |
-| `subagent_wait` | Wait for a terminal agent state (idle/done/blocked); two-tier freshness |
+| `subagent_wait` | Wait for one pane, or multiple panes with explicit `until: "first" / "all"`; two-tier freshness |
 | `subagent_send` | Send a single line of raw terminal text + Enter (no console by default) |
 | `subagent_interrupt` | Abort the current turn with Escape (never ctrl+d) |
 | `subagent_list` | List panes (current workspace by default; `workspace: "all"` for cross-workspace) |
@@ -53,6 +53,24 @@ Herdr pane in TUI mode.
 **Pane is the sole caller-facing address.** All tools address panes by `pane`
 id (e.g. `w2V:p1`). No `pane_id`, no `target`, no `continuation`, no `receipt`
 handles are exposed to the model.
+
+## Multi-pane waiting
+
+Single-pane arguments remain unchanged. For multiple panes, explicitly choose a mode:
+
+```json
+{"panes":["wX:p2","wX:p3"],"until":"first","timeoutMs":10000}
+```
+
+Use exactly one of `pane` or nonempty, unique `panes`; multi-pane calls require
+`until`. `first` selects the first eligible terminal observation, not globally first
+finished task; stale snapshots cannot win. `all` collects per-pane observations,
+including labelled snapshots/errors, with explicit pending panes at one shared
+deadline. Neither mode proves task success. Cancellation/first-winner cleanup reaps
+local monitors only, never remote workers. First includes winner console only; all
+has per-pane console caps. For positive `maxChars`, aggregate console text is bounded
+by `maxChars` for first or `panes.length × maxChars` for all; `maxChars:0` disables
+character clipping. See [contract, evidence and limits](docs/multi_pane_wait.md).
 
 ## Installation
 

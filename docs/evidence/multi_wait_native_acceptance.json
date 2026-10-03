@@ -1,0 +1,585 @@
+{
+  "timestamp": "2026-10-03T16:26:58.761399+00:00",
+  "firstmate_verdict": "ACCEPTED for agreed multi-pane wrapper contract; not task-success or statistical guarantee",
+  "source_sha256_at_native_launch": {
+    "src/core.ts": "9d4d005302011cb3bbc8ae73c1e934e640cb76510558422fac34d334db2e6aa1",
+    "src/index.ts": "d065ceac10f3ee45b374288efad652c1bd2e2081de2fe33c4130f175d682348f"
+  },
+  "final_source_sha256": {
+    "src/core.ts": "b5d07273abdf1f4087b970c5ded445065c21ed919d7f1ecb3aad062f1132f8b2",
+    "src/index.ts": "d065ceac10f3ee45b374288efad652c1bd2e2081de2fe33c4130f175d682348f",
+    "tests/multi_wait.test.ts": "f017c48f0eb2a5738eb3bb9befd3a93159c6b62f745b1d1f92598c979fc65eb6",
+    "tests/registration.test.ts": "4fb139d59fbd2e250a9316b863a2035762a49f700c3e7b627e9c50af691f3440"
+  },
+  "post_launch_change": "Core delta is only aggregate hint selection/wording (hash reconstruction verified); outcome/observation algorithm unchanged. Tests additionally assert truthful hint and actual timer cleanup. Full suite/probes pass; /reload native early-error proof and fresh genuine native SpawnError print proof use final core.",
+  "suite": {
+    "command": "npm run check",
+    "log": "agent/multi-wait/root-final-check.log",
+    "tests": 224,
+    "passed": 224,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "original_root_probes_log": "agent/multi-wait/root-final-probes.log",
+  "fixture": "/Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129",
+  "launch_command": [
+    "pi",
+    "--no-extensions",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--no-context-files",
+    "--no-approve",
+    "--no-builtin-tools",
+    "--tools",
+    "subagent_start,subagent_wait,subagent_read,subagent_prompt,subagent_close",
+    "--session-dir",
+    "/Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129/sessions",
+    "--extension",
+    "/Users/cgint/.pi/profiles/minimal/agent/git/github.com/cgint/pi-olla-autodetect/index.ts",
+    "--extension",
+    "/Users/cgint/.pi/profiles/minimal/agent/extensions/herdr-agent-state.ts",
+    "--extension",
+    "/Users/cgint/dev-external/pi-subagent-herdr/src/index.ts",
+    "--provider",
+    "home-llm",
+    "--model",
+    "qwen3.8-27b-nvfp4-dflash2-direct",
+    "--thinking",
+    "medium"
+  ],
+  "native_schema_original": "schema-call-originals.json (panes/until observed in actual toolsAdded and submitted call)",
+  "native_wait_originals": [
+    {
+      "original_entry_id": "c9aa5aa4",
+      "timestamp": "2026-10-03T13:13:16.521Z",
+      "tool_call_id": "call_8d5644ad23e9400e81d9cd1f",
+      "isError": true,
+      "details": {
+        "ok": false,
+        "outcome": "denied",
+        "phase": "validation",
+        "code": "self_control",
+        "hint": "pane w2F:p1 is the supervisor's own pane; multi-pane wait cannot address the controller",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "9fecc574",
+      "timestamp": "2026-10-03T13:15:30.660Z",
+      "tool_call_id": "call_b03999f86e0a473a9f1a44dd",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "first",
+        "panes": [
+          "w2F:p2",
+          "w2F:p3"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 2729,
+            "code": "state_changed_after_submission",
+            "observation": "state_changed_after_submission",
+            "delivery": "acknowledged",
+            "hint": "state change after submission observed by this call; not proof of task completion",
+            "consoleSource": "agent",
+            "console_evidence": {
+              "sha256_utf8": "2ef7c643d7e9a3deaaa74cbe8bdfd37740ddf3f21e1eed018a1cd8b1d5b3fa8d",
+              "code_points": 1394,
+              "omitted_from_canonical": "full original retained in fixture session/artifact"
+            }
+          },
+          {
+            "pane": "w2F:p3",
+            "outcome": "timeout",
+            "code": "pending",
+            "observation": "pending",
+            "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+          }
+        ],
+        "winner": "w2F:p2",
+        "stillPending": [
+          "w2F:p3"
+        ],
+        "hint": "a fresh terminal observation was observed by this call; not proof of task completion",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "ecf7cc5e",
+      "timestamp": "2026-10-03T13:15:32.454Z",
+      "tool_call_id": "call_259f30b8d74a4b53b558180e",
+      "isError": true,
+      "details": {
+        "ok": false,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "w2F:p2",
+          "w2F:p3"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 2729,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+          },
+          {
+            "pane": "w2F:p3",
+            "outcome": "timeout",
+            "status": "working",
+            "seq": 2731,
+            "code": "timeout",
+            "observation": "snapshot",
+            "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+          }
+        ],
+        "winner": null,
+        "stillPending": [
+          "w2F:p3"
+        ],
+        "code": "partial",
+        "hint": "shared deadline reached; partial observations reported with explicit stillPending; inspect before re-waiting",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "0882e0f2",
+      "timestamp": "2026-10-03T13:16:11.304Z",
+      "tool_call_id": "call_ab47e3ff232d4894b1eadfed",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "terminal_observed",
+        "phase": "wait",
+        "pane": "w2F:p3",
+        "status": "done",
+        "seq": 2732,
+        "delivery": "acknowledged",
+        "consoleSource": "agent",
+        "code": "state_changed_after_submission",
+        "observation": "state_changed_after_submission",
+        "hint": "terminal state observed after a newer transition; observational freshness only, not task acceptance; verify task-specific output",
+        "owned": true,
+        "console_evidence": {
+          "sha256_utf8": "ba65e49086a59189f45be84d0232b90de3140bc654e2ab45f1937416ea04b46d",
+          "code_points": 967
+        }
+      }
+    },
+    {
+      "original_entry_id": "75f4f685",
+      "timestamp": "2026-10-03T15:41:42.587Z",
+      "tool_call_id": "call_7f31e89f5e124cabad46de6e",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "w2F:p2",
+          "w2F:p3"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "terminal_observed",
+            "status": "idle",
+            "seq": 2729,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+          },
+          {
+            "pane": "w2F:p3",
+            "outcome": "terminal_observed",
+            "status": "idle",
+            "seq": 2732,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+          }
+        ],
+        "winner": null,
+        "stillPending": [],
+        "hint": "all panes produced terminal observations under the shared deadline",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "7c9a5dab",
+      "timestamp": "2026-10-03T15:41:57.188Z",
+      "tool_call_id": "call_25d339b853bc4270b3342071",
+      "isError": true,
+      "details": {
+        "ok": false,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "w2F:p2",
+          "w2F:p3"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "terminal_observed",
+            "status": "idle",
+            "seq": 2729,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+          },
+          {
+            "pane": "w2F:p3",
+            "outcome": "error",
+            "code": "agent_not_running",
+            "observation": "error",
+            "hint": "herdr wait failed (agent_not_running)"
+          }
+        ],
+        "winner": null,
+        "stillPending": [],
+        "code": "partial",
+        "hint": "shared deadline reached; partial observations reported with explicit stillPending; inspect before re-waiting",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "778359dd",
+      "timestamp": "2026-10-03T15:42:39.957Z",
+      "tool_call_id": "call_d6a9dac6217f4e04ade0be25",
+      "isError": true,
+      "details": {
+        "ok": false,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "w2F:p2"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "timeout",
+            "status": "working",
+            "seq": 2748,
+            "code": "aborted",
+            "observation": "pending",
+            "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+          }
+        ],
+        "winner": null,
+        "stillPending": [
+          "w2F:p2"
+        ],
+        "code": "aborted",
+        "hint": "aborted; local CLI resources reaped, the worker panes were not interrupted or closed",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "3ea1e752",
+      "timestamp": "2026-10-03T15:44:08.567Z",
+      "tool_call_id": "call_b1edc074b161469c95324fb5",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "first",
+        "panes": [
+          "w2F:p2",
+          "w2F:p4"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "timeout",
+            "status": "working",
+            "seq": 2748,
+            "code": "pending",
+            "observation": "snapshot",
+            "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+          },
+          {
+            "pane": "w2F:p4",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 2754,
+            "code": "state_changed_after_submission",
+            "observation": "state_changed_after_submission",
+            "delivery": "acknowledged",
+            "hint": "state change after submission observed by this call; not proof of task completion",
+            "consoleSource": "agent",
+            "console_evidence": {
+              "sha256_utf8": "faa3a1655f7bac0d137436f7800f5ded26055593467b076e190951bb81b20f16",
+              "code_points": 1304,
+              "omitted_from_canonical": "full original retained in fixture session/artifact"
+            }
+          }
+        ],
+        "winner": "w2F:p4",
+        "stillPending": [
+          "w2F:p2"
+        ],
+        "hint": "a fresh terminal observation was observed by this call; not proof of task completion",
+        "owned": false
+      }
+    },
+    {
+      "original_entry_id": "b4cebf16",
+      "timestamp": "2026-10-03T15:50:57.448Z",
+      "tool_call_id": "call_5926785f822349d695bf897d",
+      "isError": true,
+      "details": {
+        "ok": false,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "w2F:p2",
+          "w2F:p3"
+        ],
+        "results": [
+          {
+            "pane": "w2F:p2",
+            "outcome": "terminal_observed",
+            "status": "idle",
+            "seq": 2756,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+          },
+          {
+            "pane": "w2F:p3",
+            "outcome": "error",
+            "code": "agent_not_found",
+            "observation": "error",
+            "hint": "agent target w2F:p3 not found"
+          }
+        ],
+        "winner": null,
+        "stillPending": [],
+        "code": "partial",
+        "hint": "barrier incomplete: per-pane errors reported; inspect failed panes before re-waiting",
+        "owned": false
+      }
+    }
+  ],
+  "two_concurrent_first_monitors": [
+    "62428 39068 herdr agent wait w2F:p2 --until idle --until done --until blocked --timeout 59994",
+    "62438 39068 herdr agent wait w2F:p4 --until idle --until done --until blocked --timeout 59993"
+  ],
+  "cancellation": {
+    "previous_pid": 58938,
+    "previous_pid_alive": false,
+    "matching_monitors": [],
+    "child_observation": {
+      "id": "cli:agent:get",
+      "result": {
+        "agent": {
+          "agent": "pi",
+          "agent_session": {
+            "agent": "pi",
+            "kind": "path",
+            "source": "herdr:pi",
+            "value": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--Users-cgint-dev-external-pi-subagent-herdr-agent-multi-wait-root-native-20261003T151129--/2026-10-03T13-15-12-729Z_01a101e7-85d9-740c-8962-5b809eafa871.jsonl"
+          },
+          "agent_status": "working",
+          "cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129",
+          "focused": false,
+          "foreground_cwd": "/Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129",
+          "name": "native-fast",
+          "pane_id": "w2F:p2",
+          "revision": 1,
+          "screen_detection_skipped": true,
+          "state_change_seq": 2748,
+          "tab_id": "w2F:t1",
+          "terminal_id": "term_65cef7012805c15f",
+          "terminal_title": "π - root-native-20261003T151129",
+          "terminal_title_stripped": "π - root-native-20261003T151129",
+          "workspace_id": "w2F"
+        },
+        "type": "agent_info"
+      }
+    }
+  },
+  "disappearance_monitor": [
+    "58129 39068 herdr agent wait w2F:p3 --until idle --until done --until blocked --timeout 89994"
+  ],
+  "first_reap_after": [],
+  "oracles": {
+    "fast": "97ed6b26c8cdbcf4a5e76724c34ffb2ff79a1cb1ed5b8f6d42c5f06bdf838cac",
+    "slow": "79378ab64be37a49bacafde8b538d0dbb49a780de26fd7107aee8302f6702f0a"
+  },
+  "clean_child_bash_originals": [
+    {
+      "role": "toolResult",
+      "toolCallId": "call_a7123cd338404825b6c7b471",
+      "toolName": "bash",
+      "content": [
+        {
+          "type": "text",
+          "text": "79378ab64be37a49bacafde8b538d0dbb49a780de26fd7107aee8302f6702f0a  /Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129/slow.bin\n"
+        }
+      ],
+      "isError": false,
+      "timestamp": 1791042248091
+    }
+  ],
+  "surviving_child_clean_originals": [
+    {
+      "type": "message",
+      "id": "46dee53e",
+      "parentId": "c73ed278",
+      "timestamp": "2026-10-03T15:44:23.518Z",
+      "message": {
+        "role": "toolResult",
+        "toolCallId": "call_df5243e49fe4444e89327389",
+        "toolName": "bash",
+        "content": [
+          {
+            "type": "text",
+            "text": "97ed6b26c8cdbcf4a5e76724c34ffb2ff79a1cb1ed5b8f6d42c5f06bdf838cac  /Users/cgint/dev-external/pi-subagent-herdr/agent/multi-wait/root-native-20261003T151129/fast.bin\n"
+          }
+        ],
+        "isError": false,
+        "timestamp": 1791042263518
+      }
+    }
+  ],
+  "cleanup": {
+    "w2F:p1": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w2F:p1 not found\"},\"id\":\"cli:pane:get\"}\n"
+    },
+    "w2F:p2": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w2F:p2 not found\"},\"id\":\"cli:pane:get\"}\n"
+    },
+    "w2F:p3": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w2F:p3 not found\"},\"id\":\"cli:pane:get\"}\n"
+    },
+    "w2F:p4": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"pane_not_found\",\"message\":\"pane w2F:p4 not found\"},\"id\":\"cli:pane:get\"}\n"
+    },
+    "w2F": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "{\"error\":{\"code\":\"workspace_not_found\",\"message\":\"workspace w2F not found\"},\"id\":\"cli:workspace:get\"}\n"
+    }
+  },
+  "secondmate_review": "No rejection-worthy gap in bounded independent review; conditions verified: real listener/reap tests, output bound documentation, explicit core-only limits/provenance, independently absent owned resources. Peer preserved.",
+  "limits": [
+    "Busy attribution, blocked multi-mode and identity drift verified by core/unit/probes, not native",
+    "Initial round task punctuation added directory argument; command exited1 despite matching digests, explicitly excluded as clean task success",
+    "Fixture actor prose misinterpreted first as deadline and early error as deadline; original tool results, not prose, are acceptance evidence",
+    "Console tails are snapshots, not assistant-answer extraction; metadata overhead excluded from console text bound; maxChars0 disables character clipping",
+    "No statistical reliability, model-loop immunity, ecosystem co-loading, recursive-controller or broader deliberate-agent-framework guarantee",
+    "Installed/root host still has single-pane schema; source accepted, not installed/deployed",
+    "Acceptance checkpoint preceded Git publication authorization. User subsequently authorized scoped commit/normal push only; no runtime/profile/model configuration edits or deployment. Primary settings/Git config mtimes preceded correction/native runs."
+  ],
+  "core_delta_verified_by_reconstruction": {
+    "reverting_only_hint_expression_reproduces_native_launch_sha256": "9d4d005302011cb3bbc8ae73c1e934e640cb76510558422fac34d334db2e6aa1",
+    "index_unchanged_since_native_launch": true
+  },
+  "timer_cleanup_proof": "root-8/root-10 compare actual active Timeout resource counts against entry baselines, plus getEventListeners and delayed transport reap; final full suite passes",
+  "native_preflight_transport_failure": {
+    "method": "genuine Pi JSON print-mode LLM call, explicit provider/source, only subagent_wait; child-process PATH intentionally empty; no installed/profile edits, reporter omitted for isolated transport fault",
+    "actual_assistant_models": [
+      {
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct"
+      },
+      {
+        "provider": "home-llm",
+        "model": "qwen3.8-27b-nvfp4-dflash2-direct"
+      }
+    ],
+    "original_tool_end": {
+      "type": "tool_execution_end",
+      "toolCallId": "call_f1717ec7d8604988837682f5",
+      "toolName": "subagent_wait",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "multi_wait (phase: wait, until: all, code: partial)PARTIAL: wP:p999999 error code=SpawnError observation=error; barrier incomplete: per-pane errors reported; inspect failed panes before re-waiting"
+          }
+        ],
+        "details": {
+          "ok": false,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "all",
+          "panes": [
+            "wP:p999999"
+          ],
+          "results": [
+            {
+              "pane": "wP:p999999",
+              "outcome": "error",
+              "code": "SpawnError",
+              "observation": "error",
+              "hint": "spawn herdr failed: ENOENT spawn herdr ENOENT"
+            }
+          ],
+          "winner": null,
+          "stillPending": [],
+          "code": "partial",
+          "hint": "barrier incomplete: per-pane errors reported; inspect failed panes before re-waiting",
+          "owned": false
+        },
+        "structuredContent": {
+          "ok": false,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "all",
+          "panes": [
+            "wP:p999999"
+          ],
+          "results": [
+            {
+              "pane": "wP:p999999",
+              "outcome": "error",
+              "code": "SpawnError",
+              "observation": "error",
+              "hint": "spawn herdr failed: ENOENT spawn herdr ENOENT"
+            }
+          ],
+          "winner": null,
+          "stillPending": [],
+          "code": "partial",
+          "hint": "barrier incomplete: per-pane errors reported; inspect failed panes before re-waiting",
+          "owned": false
+        },
+        "isError": true
+      },
+      "isError": true
+    },
+    "process_exit": 0,
+    "remote_operations": "none: spawn herdr fails before any remote operation",
+    "stdout_sha256": "1ea71bda3dbc45a5c1f8ca49703bcede31f18e36ee87e5051734c8cd962bea68"
+  },
+  "git_publication_authority": "Subsequent explicit user request: then commit push pls; normal push only, no deployment or package publication."
+}

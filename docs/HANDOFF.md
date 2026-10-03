@@ -6,6 +6,16 @@ Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/l
 
 ## Current outcome
 
+Later multi-pane wait source accepted by Firstmate on 2026-10-03, after direct core/
+registration correction, failing-first regressions, independent secondmate critique
+and native originals/PIDs/oracles. Contract and bounds: `docs/multi_pane_wait.md`;
+final source hashes, proof/limits and independently absent owned fixtures:
+`docs/evidence/multi_wait_native_acceptance.json`. Busy attribution, blocked multi-mode
+and identity drift are core-verified, not native-proven. Current caller schema can be
+stale single-pane; do not confuse source acceptance with installed rollout. User
+subsequently authorized scoped commit and normal GitHub push, not deployment/package
+publication. Preserve unrelated edits/untracked research.
+
 0.2.0 ergonomic contract implemented (9 tools, pane sole address, two-tier freshness, console spread isolation, no public continuation/cursor). Unit test suite passes (count is not a contract). Automated acceptance and bounded native evidence/limits: docs/ergonomic_acceptance.md. Busy steering, timeout recovery and final corrections are unit-verified; human testing follows the authorized GitHub push. Exact original role/fixture proofs, failures and limits are indexed in live_verification. Historical first-version SDK/package load, native lifecycle, 20-turn batch, environment, ownership and wait-cancellation proofs do not establish final adapted-code live parity. Terminal status/timeout is not task acceptance; small console tails can be footer/padding.
 
 User owns requirements and delegated technical design/implementation/acceptance to Firstmate. Historical human Plan2 approval gate is superseded. Buddy reviewed the design; preserve equal-level partnership, never delegate grunt work to the user's buddy or reuse its historical handles. Firstmate owns strategy/integration/acceptance; verify bounded-worker artifacts independently and retire only owned resources.
@@ -34,4 +44,4 @@ Do not replay completed gates because historical notes say pending. For changes,
 
 All owned test resources independently absent after inspection; user/buddy/other-repository Firstmate preserved. Fresh deployed native L0→editableL1→readonlyL2 proof is in evidence/nested_worker_live.json: original nested native launch/close, managed metadata and hidden computed hash. Readonly workers load the extension but --tools excludes its native calls; recursive controllers must explicitly be editable. This is one minimal-profile functional probe, not all-profile or model-reliability acceptance. Raw rejected/diagnostic logs remain ignored in agent/, not shipped. Package smoke extracted outside repo ancestry and removed its own temporary directory. Pairing memory is repository-owned; agent/ is ephemeral.
 
-Current goal explicitly authorizes scoped adaptation commit and normal GitHub push; deployment and package publication are not authorized. Review git status before transfer; do not assume untracked implementation/docs are already committed. Historical discovery reports remain provenance, not active instructions.
+The earlier 0.2.0 ergonomic goal explicitly authorized scoped adaptation commit and normal GitHub push; that is historical authority. The user separately authorized scoped commit and normal push of the accepted multi-pane source change. Deployment and package publication are not authorized. Review git status before transfer; do not assume untracked implementation/docs are already committed. Historical discovery reports remain provenance, not active instructions.

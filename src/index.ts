@@ -142,7 +142,53 @@ export function resolveRuntimeDir(
 // Result mapping (core Result -> tool result)
 // ---------------------------------------------------------------------------
 
+function multiWaitSummary(r: ServiceResultLike): string {
+  const mw = r as unknown as {
+    until?: string;
+    winner?: string | null;
+    stillPending?: string[];
+    results?: Array<Record<string, unknown>>;
+  };
+  const winnerLine = mw.until === "first" ? ` winner=${mw.winner ?? "none"}` : "";
+  const still = (mw.stillPending ?? []).length
+    ? ` still_pending=[${(mw.stillPending ?? []).join(", ")}]`
+    : "";
+  const entries = (mw.results ?? [])
+    .map((e) =>
+      [String(e.pane ?? "?"), String(e.outcome ?? "?"),
+        e.code ? `code=${String(e.code)}` : "",
+        e.status ? `status=${String(e.status)}` : "",
+        e.seq !== undefined ? `seq=${String(e.seq)}` : "",
+        e.observation ? `observation=${String(e.observation)}` : "",
+        e.delivery ? `delivery=${String(e.delivery)}` : "",
+        e.consoleError ? `console_error=${String(e.consoleError)}` : ""]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join("; ");
+  const verdict =
+    mw.until === "first"
+      ? mw.winner
+        ? r.ok
+          ? `OK${winnerLine}: ${entries}`
+          : `NEEDS ATTENTION${winnerLine}: ${entries}`
+        : r.ok
+          ? `OK: no winner — ${entries}`
+          : `NO WINNER${still}: ${entries}`
+      : r.ok
+        ? `OK: all panes observed — ${entries}`
+        : r.code === "needs_attention" && !still
+          ? `NEEDS ATTENTION: all panes observed — ${entries}`
+          : `PARTIAL${still}: ${entries}`;
+  return [
+    `multi_wait (phase: ${r.phase}, until: ${mw.until ?? "?"}${r.code ? `, code: ${r.code}` : ""})${verdict}`,
+    r.hint,
+    r.detail,
+  ].filter(Boolean).join("; ");
+}
+
 function resultSummary(r: ServiceResultLike): string {
+  if (r.outcome === "multi_wait") return multiWaitSummary(r);
   const parts = [`${r.outcome} (phase: ${r.phase})`];
   if (r.pane) parts.push(`pane ${r.pane}`);
   if (r.status) parts.push(`status ${r.status}`);
@@ -157,6 +203,14 @@ function resultSummary(r: ServiceResultLike): string {
 
 function resultText(r: ServiceResultLike): string {
   const lines = [resultSummary(r)];
+  if (r.outcome === "multi_wait") {
+    const multi = r as ServiceResultLike & { results?: Array<Record<string, unknown>> };
+    for (const entry of multi.results ?? []) {
+      if (typeof entry.console === "string" && entry.console !== "") {
+        lines.push(`--- console pane ${String(entry.pane)} (source: ${String(entry.consoleSource ?? "unknown")}) ---`, entry.console);
+      }
+    }
+  }
   if (r.console !== undefined && r.console !== "") {
     lines.push("--- console (source: " + (r.consoleSource ?? "unknown") + (r.truncated ? ", truncated" : "") + ") ---");
     lines.push(r.console);
@@ -186,6 +240,24 @@ const OUTPUT_SCHEMA = Type.Object({
   consoleSource: Type.Optional(Type.String()),
   truncated: Type.Optional(Type.Boolean()),
   consoleError: Type.Optional(Type.String()),
+  panes: Type.Optional(Type.Array(Type.String())),
+  until: Type.Optional(Type.String()),
+  winner: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  results: Type.Optional(Type.Array(Type.Object({
+    pane: Type.String(),
+    outcome: Type.String(),
+    status: Type.Optional(Type.String()),
+    seq: Type.Optional(Type.Number()),
+    code: Type.Optional(Type.String()),
+    observation: Type.Optional(Type.String()),
+    delivery: Type.Optional(Type.String()),
+    console: Type.Optional(Type.String()),
+    consoleSource: Type.Optional(Type.String()),
+    consoleError: Type.Optional(Type.String()),
+    detail: Type.Optional(Type.String()),
+    hint: Type.Optional(Type.String()),
+  }))),
+  stillPending: Type.Optional(Type.Array(Type.String())),
   submittedWhile: Type.Optional(Type.String()),
   working_observed: Type.Optional(Type.Boolean()),
   observation: Type.Optional(Type.String()),
@@ -204,6 +276,24 @@ const OUTPUT_SCHEMA = Type.Object({
 const PANE_PARAM = Type.String({
   description: "Pane id of the target (e.g. w2V:p1). The pane id is the sole caller-facing address.",
 });
+
+const PANES_PARAM = Type.Optional(
+  Type.Array(Type.String(), {
+    minItems: 1,
+    description:
+      "Pane ids to wait on (multi-pane wait). Nonempty, unique ids. Mutually exclusive with pane; requires until. The pane id is the sole caller-facing address.",
+  }),
+);
+
+const UNTIL_PARAM = Type.Optional(
+  Type.Union(
+    [Type.Literal("first"), Type.Literal("all")],
+    {
+      description:
+        'Multi-pane only: "first" returns at the first eligible terminal observation (chronological; input order breaks only truly simultaneous observations); "all" is an observation barrier at the shared deadline. Required together with panes; rejected with pane.',
+    },
+  ),
+);
 
 const WAIT_PARAM = Type.Optional(
   Type.Boolean({
@@ -296,13 +386,21 @@ const READ_PARAMS = Type.Object({
   source: SOURCE_PARAM,
 });
 
-const WAIT_PARAMS = Type.Object({
-  pane: PANE_PARAM,
-  timeoutMs: TIMEOUT_MS_PARAM,
-  returnLines: RETURN_LINES_PARAM,
-  maxChars: MAX_CHARS_PARAM,
-  source: SOURCE_PARAM,
-});
+const WAIT_PARAMS = Type.Object(
+  {
+    pane: Type.Optional(PANE_PARAM),
+    panes: PANES_PARAM,
+    until: UNTIL_PARAM,
+    timeoutMs: TIMEOUT_MS_PARAM,
+    returnLines: RETURN_LINES_PARAM,
+    maxChars: MAX_CHARS_PARAM,
+    source: SOURCE_PARAM,
+  },
+  {
+    description:
+      "Exactly one addressing form: pane (single-pane wait) or panes + until (multi-pane wait). Both or neither is rejected before any action.",
+  },
+);
 
 const SEND_PARAMS = Type.Object({
   pane: PANE_PARAM,
@@ -359,8 +457,10 @@ const DESC = {
   ].join(" "),
   wait: [
     "Wait for a herdr agent pane to reach a terminal state (idle, done, or blocked) without resending anything; then return status + bounded console.",
-    "When this session has an unsettled pending submission for the pane (internal, memory-only), the wait applies freshness tiers: terminal_seen_during_submission (fast, settles once) or state_changed_after_submission. Without such context an already-terminal pane returns a labelled snapshot — this wait did not observe the turn.",
-    "timeoutMs bounds the wait phase (default 1,800,000 ms, max 3,600,000 ms). Timeout leaves any pending context unsettled and the worker may still run — inspect before re-waiting; no auto-resend. Cancellation never touches the worker.",
+    "Addressing: exactly one of pane (single-pane) or panes + until (multi-pane). pane rejects until; panes (nonempty, unique ids) requires until \"first\" or \"all\"; both or neither is rejected before any action.",
+    "Multi-pane first returns at the first eligible terminal observation by this call (chronological; input order breaks only truly simultaneous observations) and reports the observed losers as a bounded summary; multi-pane all is an observation barrier at the shared deadline with per-pane observations and explicit stillPending. Blocked (needs_attention) is never reported as success.",
+    "When this session has an unsettled pending submission for the pane (internal, memory-only), the wait applies freshness tiers: terminal_seen_during_submission (fast, settles once) or state_changed_after_submission. Without such context an already-terminal pane returns a labelled snapshot — this wait did not observe the turn. Identity drift discards the stale association without attribution.",
+    "timeoutMs is one shared deadline from call start (default 1,800,000 ms, max 3,600,000 ms). Timeout leaves any pending context unsettled and the worker may still run — inspect before re-waiting; no auto-resend. Cancellation never touches the worker.",
   ].join(" "),
   send: [
     "Send a single line of raw terminal text plus Enter to a herdr pane.",

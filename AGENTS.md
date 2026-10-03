@@ -50,6 +50,20 @@ remains an equal-level peer, never a cleanup resource. Pending submission contex
 memory-only. No research changes, new orchestration, installed runtime/config/model
 edits, packaging/publication or force push belong to this goal.
 
+## Later multi-pane source acceptance (2026-10-03)
+
+`subagent_wait` now supports mandatory `{panes, until:"first"|"all"}` while retaining
+single-pane behavior and the same 9 tools. Firstmate independently accepted corrected
+source after failing-first core/registration regressions, bounded secondmate critique,
+genuine native calls/PIDs/oracles and independently absent owned fixtures. Contract,
+aggregate/zero-cap bounds and precise core-only/native limits: `docs/multi_pane_wait.md`;
+final hashes/provenance/cleanup: `docs/evidence/multi_wait_native_acceptance.json`.
+User subsequently authorized a scoped commit and normal GitHub push for this change.
+Deployment, package publication and configuration/model edits remain unauthorized;
+unrelated work must stay outside the commit.
+Caller schema may remain stale single-pane until appropriately refreshed. Historical
+fixture handles are evidence only, never reusable control addresses.
+
 ## Declared limits / follow-up
 - Installed readonly inline-brief parser quirk persists on0.99.1/1.0.0; extension avoids it via post-detection prompt. Later authorized extension-loading rollout does not repair or rely on positional briefs.
 - Multiline send deliberately rejected. Genuine pi-herdr unavailable; conditional co-loading unexecuted, never claimed collision-free.

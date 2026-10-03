@@ -327,6 +327,28 @@ export type ConsoleOutcome =
   | { ok: true; text: string; source: "agent" | "visible" | "raw"; clipped: boolean; hint?: string }
   | { ok: false; error: string; source: "agent" | "raw" | "none" };
 
+interface MultiPaneEntry {
+  pane: string;
+  outcome: "terminal_observed" | "needs_attention" | "timeout" | "working" | "error";
+  /** Present only when an observation was actually read (no fabrication). */
+  status?: string;
+  seq?: number;
+  /** Freshness label (tier-1/tier-2/snapshot) or error code. */
+  code: string;
+  /** Observation label: ...after_submission / may_reflect_prior_turn / snapshot / pending / error. */
+  observation: string;
+  /** "acknowledged" when a pending record settled on this entry. */
+  delivery?: string;
+  /** Bounded per-pane console tail; absent when returnLines is 0. */
+  console?: string;
+  consoleSource?: string;
+  consoleError?: string;
+  /** True when this pane's console tail was clipped (drives top-level truncated). */
+  paneTruncated?: boolean;
+  detail?: string;
+  hint?: string;
+}
+
 export class SubagentService {
   private readonly transport: Transport;
   private readonly scriptsDir: string;
@@ -380,7 +402,7 @@ export class SubagentService {
       start: (a, s) => this.start(a, s),
       prompt: (a, s) => this.prompt(a, s),
       read: (a, s) => this.read(a, s),
-      wait: (a, s) => this.wait(a, s),
+      wait: (a, s) => this.routeWait(a, s),
       send: (a, s) => this.send(a, s),
       interrupt: (a, s) => this.interrupt(a, s),
       list: (a, s) => this.list(a, s),
@@ -1385,6 +1407,103 @@ export class SubagentService {
   }
 
   // -------------------------------------------------------------------------
+  // wait routing (single-pane vs multi-pane; docs/multi_pane_wait.md)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Route subagent_wait: single-pane `pane` keeps the exact 0.2.0 contract
+   * (byte-identical, A12); `panes` + `until` ("first" | "all") runs the
+   * multi-pane wait. The two addressing forms are mutually exclusive —
+   * no implicit default (A10).
+   */
+  private async routeWait(args: Record<string, unknown>, signal?: AbortSignal): Promise<Result> {
+    const pane = typeof args.pane === "string" && args.pane !== "" ? args.pane : undefined;
+    const hasPanes = args.panes !== undefined;
+
+    if (pane !== undefined && hasPanes) {
+      return {
+        ok: false, outcome: "error", phase: "validation",
+        code: "pane_and_panes",
+        hint: "pane and panes are mutually exclusive; pass one addressing form",
+      };
+    }
+    if (pane !== undefined && args.until !== undefined) {
+      // A9/A10: until is multi-pane only; with single-pane addressing it is
+      // rejected before any herdr call (single-pane behavior stays intact).
+      return {
+        ok: false, outcome: "error", phase: "validation",
+        code: "until_with_pane",
+        hint: "until applies only to multi-pane waits (panes); pass pane alone for a single-pane wait",
+      };
+    }
+    if (pane === undefined && !hasPanes) {
+      return {
+        ok: false, outcome: "error", phase: "validation",
+        code: "pane_required", hint: "pane (single-pane) or panes (multi-pane) is required",
+      };
+    }
+    if (pane !== undefined) {
+      // 0.2.0 single-pane behavior, untouched (A12); panes/until ignored here.
+      return this.wait({ ...args, pane }, signal);
+    }
+
+    // ---- Multi-pane validation (all BEFORE any herdr call; A10) ----
+    const panesArg = args.panes;
+    if (!Array.isArray(panesArg)) {
+      return {
+        ok: false, outcome: "error", phase: "validation", code: "panes_invalid",
+        hint: "panes must be an array of pane ids",
+      };
+    }
+    const panes: string[] = [];
+    for (const entry of panesArg) {
+      if (typeof entry !== "string" || entry.length === 0) {
+        return {
+          ok: false, outcome: "error", phase: "validation", code: "panes_invalid",
+          hint: "panes must be an array of non-empty pane id strings",
+        };
+      }
+      panes.push(entry);
+    }
+    if (panes.length === 0) {
+      return {
+        ok: false, outcome: "error", phase: "validation", code: "panes_empty",
+        hint: "panes must name at least one pane",
+      };
+    }
+    if (new Set(panes).size !== panes.length) {
+      return {
+        ok: false, outcome: "error", phase: "validation", code: "panes_duplicate",
+        hint: "panes must not repeat a pane id",
+      };
+    }
+    for (const id of panes) {
+      if (this.isSelf(id)) {
+        return {
+          ok: false, outcome: "denied", phase: "validation", code: "self_control",
+          hint: `pane ${id} is the supervisor's own pane; multi-pane wait cannot address the controller`,
+        };
+      }
+    }
+    const until = args.until;
+    if (until !== "first" && until !== "all") {
+      return {
+        ok: false, outcome: "error", phase: "validation",
+        code: until === undefined ? "until_required" : "until_invalid", // multi-pane only
+        hint: until === undefined
+          ? 'until must be "first" or "all" when panes is given'
+          : 'until must be "first" or "all"',
+      };
+    }
+    const boundsError = this.validateConsoleBounds(args);
+    if (boundsError) return boundsError;
+    const timeoutMs = this.resolveWaitBudget(args, true, "wait");
+    if (timeoutMs.error) return timeoutMs.error;
+
+    return this.multiWait(panes, until, timeoutMs.ms, args, signal);
+  }
+
+  // -------------------------------------------------------------------------
   // wait (pane-only; internal pending context; two-tier freshness)
   // -------------------------------------------------------------------------
 
@@ -1563,6 +1682,421 @@ export class SubagentService {
       observation: "snapshot",
       hint: "terminal state snapshot; not proof of a specific task turn",
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // multi-pane wait (docs/multi_pane_wait.md; adjudications A1–A14)
+  // -------------------------------------------------------------------------
+
+
+  /**
+   * Multi-pane wait over `panes` until the first eligible fresh terminal
+   * observation (until="first") or the shared deadline (until="all").
+   *
+   * Guarantees (A1–A14):
+   * - pending contexts settle at observation time (A2 settle-once), keeping
+   *   the two-tier freshness model per pane (A1);
+   * - every pane yields exactly one entry (A6); error/timeout/working/snapshot
+   *   entries are first-class, never hidden;
+   * - per-pane console bound maxChars; top-level truncated iff any pane
+   *   clipped (A7);
+   * - deterministic input order in results/panes; input-order tie-breaks
+   *   (A8);
+   * - local-only reaping: the internal AbortController cancels the local CLI
+   *   monitors; no pane close/interrupt/kill (A13);
+   * - single-pane behavior untouched (A12): `wait()` is not modified.
+   */
+  private async multiWait(
+    panes: string[],
+    until: "first" | "all",
+    budgetMs: number,
+    args: Record<string, unknown>,
+    externalSignal: AbortSignal | undefined,
+  ): Promise<Result> {
+    const { lines, chars, source } = this.resolveConsoleBounds(args);
+    const deadline = this.now() + budgetMs;
+    const calls = new AbortController();
+    const observers = new AbortController();
+    const preflights = new Map<string, AgentInfo | "error" | null>();
+    const entries = new Map<string, MultiPaneEntry>();
+    const driftedPreflights = new Set<string>();
+    let winner: string | null = null;
+    let deadlineHit = false;
+    // Winner cancellation applies only to observation operations. Console reads
+    // retain a live caller/deadline signal; no worker-control command is sent.
+    const cancel = (): void => { calls.abort(); observers.abort(); };
+    externalSignal?.addEventListener("abort", cancel, { once: true });
+    if (externalSignal?.aborted) cancel();
+    const timer = setTimeout(() => { deadlineHit = true; cancel(); }, budgetMs);
+
+    const pendingEntry = (id: string, pre?: AgentInfo): MultiPaneEntry => ({
+      pane: id, outcome: driftedPreflights.has(id) ? "working" : "timeout", status: pre?.agent_status,
+      seq: pre?.state_change_seq,
+      code: externalSignal?.aborted ? "aborted" : driftedPreflights.has(id) ? "identity_drift" : deadlineHit ? "timeout" : "pending",
+      observation: externalSignal?.aborted || !pre ? "pending" : "snapshot",
+      hint: "no terminal observation; only local observation operations were cancelled; the worker may still run",
+    });
+    const driftEntry = (id: string, agent: AgentInfo): MultiPaneEntry => ({
+      pane: id, outcome: agent.agent_status === "blocked" ? "needs_attention" : "terminal_observed",
+      status: agent.agent_status, seq: agent.state_change_seq,
+      code: "identity_drift", observation: "snapshot",
+      hint: "agent identity changed; old association discarded; current terminal snapshot is not attributable to the submitted task",
+    });
+    const latch = (id: string): void => {
+      if (until === "first" && winner === null) {
+        winner = id;
+        observers.abort();
+      }
+    };
+    const recordTerminal = (id: string, agent: AgentInfo, pre?: AgentInfo): void => {
+      const rec = this.pending.get(id);
+      const changedSincePreflight = !!pre && (
+        (!!pre.workspace_id && !!agent.workspace_id && pre.workspace_id !== agent.workspace_id)
+        || (!!pre.terminal_id && !!agent.terminal_id && pre.terminal_id !== agent.terminal_id)
+      );
+      if (changedSincePreflight || !this.identityMatches(rec, agent)) {
+        this.pending.delete(id);
+        entries.set(id, driftEntry(id, agent));
+        return; // Reused-agent observations never win the old wait.
+      }
+      // Settlement and entry publication are synchronous at observation time,
+      // before winner cancellation or any asynchronous console read.
+      const settled = this.settleAtObservation(id, agent, lines, chars, source);
+      entries.set(id, settled ?? {
+        pane: id,
+        outcome: agent.agent_status === "blocked" ? "needs_attention" : "terminal_observed",
+        status: agent.agent_status, seq: agent.state_change_seq,
+        code: "snapshot", observation: "snapshot",
+        hint: pre
+          ? "terminal observed by this call without submission attribution; not proof of task completion"
+          : "already-terminal snapshot; this call did not observe a fresh transition",
+      });
+      if (settled || (pre && (!rec || rec.settled))) latch(id);
+    };
+
+    // Start every preflight concurrently in input order. Fresh observations
+    // latch immediately, rather than waiting behind a slow peer's preflight.
+    // Equally-ready promises retain input order; different observation times
+    // never get re-sorted. Awaiting jobs also awaits actual transport reaping:
+    // an abort-only race would hide a still-running local CLI operation.
+    const jobs = panes.map(async (id): Promise<void> => {
+      if (observers.signal.aborted) { entries.set(id, pendingEntry(id)); return; }
+      const lookup = await this.herdr(["agent", "get", id], { signal: observers.signal });
+      const pre = lookup.ok ? agentOf(lookup.doc) ?? null : "error";
+      preflights.set(id, pre);
+      if (deadlineHit || this.now() >= deadline) {
+        deadlineHit = true;
+        cancel();
+        entries.set(id, pendingEntry(id));
+        return;
+      }
+      if (pre === "error" || pre === null) {
+        entries.set(id, observers.signal.aborted ? pendingEntry(id) : {
+          pane: id, outcome: "error", code: lookup.error?.code ?? lookup.transportCode ?? "agent_not_found", observation: "error",
+          hint: lookup.error?.message ?? "pane or managed agent unavailable at preflight",
+        });
+        return;
+      }
+      const drifted = !this.identityMatches(this.pending.get(id), pre);
+      if (drifted) { this.pending.delete(id); driftedPreflights.add(id); }
+      if (TERMINAL_STATES.includes(pre.agent_status ?? "")) {
+        if (drifted) entries.set(id, driftEntry(id, pre));
+        else recordTerminal(id, pre);
+        return;
+      }
+      if (observers.signal.aborted) { entries.set(id, pendingEntry(id, pre)); return; }
+      const remaining = Math.max(1, deadline - this.now());
+      const res = await this.herdr([
+        "agent", "wait", id, "--until", "idle", "--until", "done", "--until", "blocked",
+        "--timeout", String(remaining),
+      ], { signal: observers.signal, timeoutMs: remaining + 5_000 });
+      // Even after another winner/caller cancellation, a genuine completed
+      // terminal payload is an observation. Drain and preserve it, not an
+      // aborted transport's nonexistent observation. Deadline is different:
+      // events outside the observation budget cannot create a winner.
+      if (deadlineHit || this.now() >= deadline) {
+        deadlineHit = true; cancel(); entries.set(id, pendingEntry(id, pre)); return;
+      }
+      if (res.ok) {
+        const agent = agentOf(res.doc);
+        if (agent && TERMINAL_STATES.includes(agent.agent_status ?? "")) {
+          recordTerminal(id, agent, pre);
+        } else {
+          entries.set(id, { pane: id, outcome: "error", code: "unexpected_wait_state", observation: "error" });
+        }
+        return;
+      }
+      if (observers.signal.aborted || res.error?.code === "aborted") {
+        entries.set(id, pendingEntry(id, pre)); return;
+      }
+      if (res.error?.code === "timeout" || res.transportCode === "TimeoutError") {
+        const post = await this.agentGet(id, observers.signal);
+        if (!deadlineHit && post && post !== "error" && TERMINAL_STATES.includes(post.agent_status ?? "")) {
+          recordTerminal(id, post, pre);
+        } else {
+          entries.set(id, {
+            ...pendingEntry(id, post && post !== "error" ? post : pre),
+            code: driftedPreflights.has(id) ? "identity_drift" : "timeout",
+          });
+        }
+        return;
+      }
+      const code = res.error?.code ?? res.transportCode ?? "agent_wait_failed";
+      entries.set(id, { pane: id, outcome: "error", code, observation: "error", hint: this.hintFor(code, "wait") });
+    });
+
+    try {
+      const completions = await Promise.allSettled(jobs);
+      completions.forEach((completion, index) => {
+        const id = panes[index];
+        if (completion.status === "rejected" && !entries.has(id)) {
+          entries.set(id, { pane: id, outcome: "error", code: "observation_failed", observation: "error", hint: String(completion.reason) });
+        }
+      });
+      // A first snapshot-only set has no winner; all-mode is a terminal
+      // observation barrier, not evidence of task success.
+      await Promise.all([...entries.values()].map(async (entry) => {
+        if (until === "first" && entry.pane !== winner) return;
+        if (entry.outcome !== "terminal_observed" && entry.outcome !== "needs_attention") return;
+        const output = await this.captureConsole(entry.pane, lines, chars, source, calls.signal);
+        Object.assign(entry, this.multiConsoleSpread(output));
+      }));
+      return this.finishMultiWait(panes, until, winner, preflights, entries, new Map(), deadlineHit, externalSignal?.aborted ?? false);
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", cancel);
+      cancel();
+      await Promise.allSettled(jobs);
+    }
+  }
+
+  /**
+   * Identity match between an (unsettled) pending record and a live agent
+   * observation. Missing identity stays honest: unknown components never
+   * block a settlement, but any KNOWN component that differs is drift.
+   */
+  private identityMatches(rec: PendingContext | undefined, agent: AgentInfo): boolean {
+    if (!rec || rec.settled) return true;
+    if (rec.workspace_id && agent.workspace_id && rec.workspace_id !== agent.workspace_id) return false;
+    if (rec.terminal_id && agent.terminal_id && rec.terminal_id !== agent.terminal_id) return false;
+    return true;
+  }
+
+  /**
+   * Attempt identity-validated tier-1/tier-2 settlement for a pane whose
+   * preflight is already terminal (multi-pane path only; A1). Returns the
+   * settled entry when the pending record settles fresh, else undefined (the
+   * pane stays a plain snapshot and is never an eligible winner). The
+   * check-and-set is synchronous (atomic within one turn): the first client
+   * to observe the terminal wins the tier label; concurrent clients see
+   * `settled` and fall back to a labelled snapshot (A14(9)). Identity is
+   * validated by the caller BEFORE entering (drifted contexts are discarded
+   * and never settle here).
+   */
+  private settleAtObservation(
+    pane: string,
+    pre: AgentInfo,
+    lines: number,
+    chars: number,
+    source: "auto" | "agent" | "raw",
+  ): MultiPaneEntry | null {
+    const rec = this.pending.get(pane);
+    if (!rec || rec.settled || !rec.delivery_confirmed) return null;
+    if (!this.identityMatches(rec, pre)) return null;
+    const preSeq = typeof pre.state_change_seq === "number" ? pre.state_change_seq : -1;
+    const preStatus = pre.agent_status ?? "unknown";
+    // Tier 1: the terminal IS the submission receipt itself — exact
+    // sequence AND identity, receipt newer than the pre-submit baseline.
+    if (rec.receipt_seq !== undefined && preSeq >= 0 && preSeq === rec.receipt_seq
+      && preStatus === (rec.receipt_state ?? "") && rec.baseline_seq !== undefined
+      && rec.receipt_seq > rec.baseline_seq) {
+      rec.settled = true;
+      const busy = rec.submitted_while === "working";
+      return {
+        pane,
+        outcome: preStatus === "blocked" ? "needs_attention" : "terminal_observed",
+        status: preStatus,
+        seq: pre.state_change_seq,
+        code: "terminal_seen_during_submission",
+        observation: busy ? "may_reflect_prior_turn" : "terminal_seen_during_submission",
+        delivery: "acknowledged",
+        hint: "terminal state already observed at submission time (same sequence); settled once; not proof of task completion",
+        ...this.multiConsoleSpread(this.consoleSpreadForSettled(lines, chars, source)),
+      };
+    }
+    // Tier 2: terminal strictly newer than the pre-submit baseline, observed
+    // by THIS call's preflight -> fresh settlement.
+    const baseline = rec.baseline_seq === undefined ? rec.receipt_seq
+      : rec.receipt_seq === undefined ? rec.baseline_seq : Math.max(rec.baseline_seq, rec.receipt_seq);
+    if (baseline !== undefined && preSeq > baseline) {
+      rec.settled = true;
+      const busy = rec.submitted_while === "working";
+      return {
+        pane,
+        outcome: preStatus === "blocked" ? "needs_attention" : "terminal_observed",
+        status: preStatus,
+        seq: pre.state_change_seq,
+        code: "state_changed_after_submission",
+        observation: busy ? "may_reflect_prior_turn" : "state_changed_after_submission",
+        delivery: "acknowledged",
+        hint: busy
+          ? "the agent was already working when submitted; the observed state may reflect the prior turn; not proof of task completion"
+          : "state change after submission observed by this call; not proof of task completion",
+        ...this.multiConsoleSpread(this.consoleSpreadForSettled(lines, chars, source)),
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Console spread for a settled entry that is produced synchronously: the
+   * console capture is asynchronous, so settled-at-preflight entries carry
+   * the status/seq settlement and no console (the caller-facing bound holds:
+   * total output <= panes * maxChars; the winner's console is still captured
+   * in finishMultiWait for the winner only when requested). Kept minimal and
+   * honest: no fabricated console text.
+   */
+  private consoleSpreadForSettled(
+    _lines: number, _chars: number, _source: "auto" | "agent" | "raw",
+  ): Record<string, unknown> {
+    return this.consoleSpread({});
+  }
+
+  /** Spread console fields into a multi-pane entry (per-pane truncation flag). */
+  private multiConsoleSpread(out: Record<string, unknown>): Record<string, unknown> {
+    if (out.truncated === true) {
+      const rest = { ...out };
+      delete rest.truncated;
+      rest.paneTruncated = true;
+      return rest;
+    }
+    return out;
+  }
+
+  /**
+   * Assemble the multi-wait result (A6/A7/A8/A11 shape):
+   * - results/panes in input order, exactly one entry per pane;
+   * - until=first: winner (or null + code no_winner); a winner makes
+   *   ok=true ONLY when it is a plain terminal_observed — a blocked winner
+   *   (needs_attention) is actionable, never success;
+   * - until=all: ok=true only when every pane is a plain terminal_observed.
+   *   Any needs_attention (blocked) or still-pending member makes the
+   *   barrier not-success (code needs_attention / partial); errors never
+   *   count as success either;
+   * - top-level code "aborted" when the caller cancelled (A3), combined with
+   *   the winner when the winner was captured before the abort.
+   */
+  private finishMultiWait(
+    panes: string[],
+    until: "first" | "all",
+    winner: string | null,
+    _preflights: Map<string, AgentInfo | "error" | null>,
+    entries: Map<string, MultiPaneEntry>,
+    _monitorResults: Map<string, unknown>,
+    deadlineHit: boolean,
+    callerAborted: boolean,
+  ): Result {
+    const results: MultiPaneEntry[] = panes.map((id) => entries.get(id)!);
+    // A7: top-level truncated iff any pane's console tail was clipped.
+    let anyTruncated = false;
+    for (const e of results) {
+      if (e.paneTruncated === true) { anyTruncated = true; delete e.paneTruncated; }
+    }
+    const stillPending = results
+      .filter((e) => e.outcome === "timeout" || e.outcome === "working")
+      .filter((e) => e.code === "timeout" || e.code === "identity_drift"
+        || e.code === "pending" || e.code === "aborted")
+      .map((e) => e.pane);
+    const hasNeedsAttention = results.some((e) => e.outcome === "needs_attention");
+    const hasError = results.some((e) => e.outcome === "error");
+
+    if (callerAborted) {
+      return {
+        ok: false,
+        outcome: "multi_wait",
+        phase: "wait",
+        until,
+        panes: [...panes],
+        results,
+        winner: until === "first" ? winner : null,
+        stillPending,
+        ...(anyTruncated ? { truncated: true } : {}),
+        code: "aborted",
+        hint: "aborted; local CLI resources reaped, the worker panes were not interrupted or closed",
+      } as unknown as Result;
+    }
+
+    if (until === "first") {
+      if (winner === null) {
+        return {
+          ok: false,
+          outcome: "multi_wait",
+          phase: "wait",
+          until,
+          panes: [...panes],
+          results,
+          winner: null,
+          code: "no_winner",
+          stillPending,
+          ...(anyTruncated ? { truncated: true } : {}),
+          hint: deadlineHit
+            ? "shared deadline reached before any eligible terminal observation; partial observations reported; inspect before re-waiting"
+            : "no pane can yield a fresh terminal observation; all panes are snapshots or errors; re-wait or inspect",
+        } as unknown as Result;
+      }
+      const winnerEntry = entries.get(winner)!;
+      const ok = winnerEntry.outcome === "terminal_observed";
+      return {
+        ok,
+        outcome: "multi_wait",
+        phase: "wait",
+        until,
+        panes: [...panes],
+        results,
+        winner,
+        stillPending,
+        ...(anyTruncated ? { truncated: true } : {}),
+        ...(winnerEntry.outcome === "needs_attention"
+          ? { code: "agent_blocked", hint: "winner reached blocked (needs attention), not success" }
+          : {}),
+        hint: ok
+          ? "a fresh terminal observation was observed by this call; not proof of task completion"
+          : undefined,
+      } as unknown as Result;
+    }
+
+    // until: all — barrier result. Success requires EVERY pane to be a plain
+    // terminal observation: blocked (needs_attention), errors and still-pending
+    // panes each make the barrier not-success, with distinct codes.
+    const allTerminal = results.every((e) => e.outcome === "terminal_observed" || e.outcome === "needs_attention");
+    const fullyObserved = !stillPending.length && !hasError;
+    const ok = results.every((e) => e.outcome === "terminal_observed");
+    const code = !ok ? (!allTerminal || hasError ? "partial" : "needs_attention") : undefined;
+    return {
+      ok,
+      outcome: "multi_wait",
+      phase: "wait",
+      until,
+      panes: [...panes],
+      results,
+      winner: null,
+      stillPending,
+      ...(anyTruncated ? { truncated: true } : {}),
+      ...(code ? { code } : {}),
+      hint: ok
+        ? "all panes produced terminal observations under the shared deadline"
+        : hasNeedsAttention
+          ? (fullyObserved
+            ? "all panes observed; at least one reached blocked (needs attention); not a success barrier"
+            : "barrier incomplete: blocked member plus pending or failed observations; inspect before re-waiting")
+          : hasError
+            ? "barrier incomplete: per-pane errors reported; inspect failed panes before re-waiting"
+            : stillPending.length
+              ? (deadlineHit
+                ? "shared deadline reached; partial observations reported with explicit stillPending; inspect before re-waiting"
+                : "barrier incomplete; partial observations reported with explicit stillPending; inspect before re-waiting")
+              : "barrier reached without success",
+    } as unknown as Result;
   }
 
   private pendingIdentityDrift(rec: PendingContext, agent: AgentInfo): string | undefined {
@@ -2161,7 +2695,16 @@ export class SubagentService {
     target: string,
     signal?: AbortSignal,
   ): Promise<AgentInfo | null | "error"> {
+    if (process.env.PI_MULTIWAIT_TRACE) {
+      // eslint-disable-next-line no-console
+      console.error(`[agentGet ${target}] start`);
+    }
     const res = await this.herdr(["agent", "get", target], { signal });
+    if (process.env.PI_MULTIWAIT_TRACE) {
+      const out = res.ok ? agentOf(res.doc) : res.error;
+      // eslint-disable-next-line no-console
+      console.error(`[agentGet ${target}] end ok=${res.ok} out=${JSON.stringify(out)}`);
+    }
     if (!res.ok) {
       // Typed agent_not_found is a valid "no agent" signal, not a transport error.
       if (res.error?.code === "agent_not_found") return null;

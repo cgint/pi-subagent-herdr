@@ -1,0 +1,245 @@
+{
+  "timestamp": "2026-10-03T13:07:03.984114+00:00",
+  "verdict": "ACCEPTED after native proof and independently verified cleanup",
+  "source_sha256": {
+    "src/core.ts": "9d4d005302011cb3bbc8ae73c1e934e640cb76510558422fac34d334db2e6aa1",
+    "src/index.ts": "d065ceac10f3ee45b374288efad652c1bd2e2081de2fe33c4130f175d682348f",
+    "tests/multi_wait.test.ts": "ff99066143a356d2629ceaafd117eb21b0396aa904b721a097b59ef5f2c3f8ba",
+    "tests/registration.test.ts": "4fb139d59fbd2e250a9316b863a2035762a49f700c3e7b627e9c50af691f3440"
+  },
+  "suite": {
+    "command": "npm run check",
+    "tests": 224,
+    "pass": 224,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "log": "agent/multi-wait/root-direct-check-final.log"
+  },
+  "root_original_probes": {
+    "timestamp": "2026-10-03T13:02:38.329Z",
+    "mechanism": "independent deterministic deferred-transport probes against built current source; no real panes touched",
+    "findings": [
+      {
+        "claim": "first returns at first observed terminal and selects chronological winner",
+        "expected": {
+          "returnedAfterFirst": true,
+          "winner": "wF:p10"
+        },
+        "actual": {
+          "returnedAfterFirst": true,
+          "winner": "wF:p10"
+        },
+        "passed": true,
+        "result": {
+          "ok": true,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "first",
+          "panes": [
+            "wF:p9",
+            "wF:p10"
+          ],
+          "results": [
+            {
+              "pane": "wF:p9",
+              "outcome": "timeout",
+              "status": "working",
+              "seq": 10,
+              "code": "pending",
+              "observation": "snapshot",
+              "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+            },
+            {
+              "pane": "wF:p10",
+              "outcome": "terminal_observed",
+              "status": "done",
+              "seq": 11,
+              "code": "snapshot",
+              "observation": "snapshot",
+              "hint": "terminal observed by this call without submission attribution; not proof of task completion"
+            }
+          ],
+          "winner": "wF:p10",
+          "stillPending": [
+            "wF:p9"
+          ],
+          "hint": "a fresh terminal observation was observed by this call; not proof of task completion"
+        }
+      },
+      {
+        "claim": "mid-flight caller cancellation aborts local monitors promptly",
+        "expected": {
+          "returnedOnAbort": true,
+          "abortedSignals": [
+            true,
+            true
+          ]
+        },
+        "actual": {
+          "returnedOnAbort": true,
+          "abortedSignals": [
+            true,
+            true
+          ]
+        },
+        "passed": true,
+        "result": {
+          "ok": false,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "all",
+          "panes": [
+            "wF:p9",
+            "wF:p10"
+          ],
+          "results": [
+            {
+              "pane": "wF:p9",
+              "outcome": "timeout",
+              "status": "working",
+              "seq": 10,
+              "code": "aborted",
+              "observation": "pending",
+              "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+            },
+            {
+              "pane": "wF:p10",
+              "outcome": "timeout",
+              "status": "working",
+              "seq": 10,
+              "code": "aborted",
+              "observation": "pending",
+              "hint": "no terminal observation; only local observation operations were cancelled; the worker may still run"
+            }
+          ],
+          "winner": null,
+          "stillPending": [
+            "wF:p9",
+            "wF:p10"
+          ],
+          "code": "aborted",
+          "hint": "aborted; local CLI resources reaped, the worker panes were not interrupted or closed"
+        }
+      },
+      {
+        "claim": "all blocked must not be reported as success",
+        "expected": {
+          "ok": false
+        },
+        "actual": {
+          "ok": false
+        },
+        "passed": true,
+        "result": {
+          "ok": false,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "all",
+          "panes": [
+            "wF:p9",
+            "wF:p10"
+          ],
+          "results": [
+            {
+              "pane": "wF:p9",
+              "outcome": "needs_attention",
+              "status": "blocked",
+              "seq": 10,
+              "code": "snapshot",
+              "observation": "snapshot",
+              "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+            },
+            {
+              "pane": "wF:p10",
+              "outcome": "needs_attention",
+              "status": "blocked",
+              "seq": 10,
+              "code": "snapshot",
+              "observation": "snapshot",
+              "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+            }
+          ],
+          "winner": null,
+          "stillPending": [],
+          "code": "needs_attention",
+          "hint": "all panes observed; at least one reached blocked (needs attention); not a success barrier"
+        }
+      },
+      {
+        "claim": "reused terminal identity must not settle old submission or win",
+        "expected": {
+          "settled": false,
+          "winner": null
+        },
+        "actual": {
+          "settled": false,
+          "winner": null
+        },
+        "passed": true,
+        "result": {
+          "ok": false,
+          "outcome": "multi_wait",
+          "phase": "wait",
+          "until": "first",
+          "panes": [
+            "wF:p9",
+            "wF:p10"
+          ],
+          "results": [
+            {
+              "pane": "wF:p9",
+              "outcome": "terminal_observed",
+              "status": "done",
+              "seq": 10,
+              "code": "identity_drift",
+              "observation": "snapshot",
+              "hint": "agent identity changed; old association discarded; current terminal snapshot is not attributable to the submitted task"
+            },
+            {
+              "pane": "wF:p10",
+              "outcome": "terminal_observed",
+              "status": "done",
+              "seq": 10,
+              "code": "snapshot",
+              "observation": "snapshot",
+              "hint": "already-terminal snapshot; this call did not observe a fresh transition"
+            }
+          ],
+          "winner": null,
+          "code": "no_winner",
+          "stillPending": [],
+          "hint": "no pane can yield a fresh terminal observation; all panes are snapshots or errors; re-wait or inspect"
+        }
+      }
+    ]
+  },
+  "red_evidence": {
+    "initial_root": "docs/evidence/multi_wait_root_review.json",
+    "stopped_candidate": "agent/multi-wait/stopped-candidate-red.log (1 failed, 4 cancelled, 1 passed; do not call six individual failures)",
+    "final_edges": "agent/multi-wait/root-final-edge-red.log (four failed, no cancellations)"
+  },
+  "review": "Secondmate independently endorsed correcting four mis-scheduled new worker fixtures; root restored compact loser assertion. Advisor stop adopted; final generic partial-state recommendation contested against canonical barrier contract; invented PaneNotFoundError not introduced, actual Herdr/transport types retained.",
+  "provider_catalog_logs": [
+    "agent/multi-wait/catalog-no-extensions.log",
+    "agent/multi-wait/catalog-ambient.log",
+    "agent/multi-wait/catalog-explicit-provider.log"
+  ],
+  "limits": [
+    "No fresh current-source native acceptance yet",
+    "No commit/push or installed/runtime/profile/model configuration changes",
+    "Worker partial-report ACCEPTED labels are not Firstmate acceptance"
+  ],
+  "owned_writer_cleanup": {
+    "pane": "wP:p1J",
+    "verified": "typed pane_not_found from subagent_close; partial work report persisted"
+  },
+  "final_source_sha256": {
+    "src/core.ts": "b5d07273abdf1f4087b970c5ded445065c21ed919d7f1ecb3aad062f1132f8b2",
+    "src/index.ts": "d065ceac10f3ee45b374288efad652c1bd2e2081de2fe33c4130f175d682348f",
+    "tests/multi_wait.test.ts": "f017c48f0eb2a5738eb3bb9befd3a93159c6b62f745b1d1f92598c979fc65eb6",
+    "tests/registration.test.ts": "4fb139d59fbd2e250a9316b863a2035762a49f700c3e7b627e9c50af691f3440"
+  },
+  "final_suite_log": "agent/multi-wait/root-final-check.log",
+  "native_acceptance": "docs/evidence/multi_wait_native_acceptance.json"
+}

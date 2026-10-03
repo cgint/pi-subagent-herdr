@@ -249,11 +249,22 @@ test("parameter schemas match the 0.2.0 flat contract", async () => {
   assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.waitMode, undefined);
   assert.equal((byName.get("subagent_prompt")!.parameters as { properties: Record<string, unknown> }).properties.continuation, undefined);
 
-  // wait: single timeoutMs; no boundedWaitMs, no waitMode, no continuation
-  assert.deepEqual(props(byName.get("subagent_wait")!).sort(), ["maxChars", "pane", "returnLines", "source", "timeoutMs"]);
-  assert.deepEqual(required(byName.get("subagent_wait")!), ["pane"]);
-  assert.equal((byName.get("subagent_wait")!.parameters as { properties: Record<string, unknown> }).properties.boundedWaitMs, undefined);
-  assert.equal((byName.get("subagent_wait")!.parameters as { properties: Record<string, unknown> }).properties.continuation, undefined);
+  // wait: single-pane pane OR multi-pane panes+until; exactly-one is
+  // enforced by the core, so the registered schema keeps all three optional.
+  // No boundedWaitMs, no waitMode, no continuation.
+  assert.deepEqual(props(byName.get("subagent_wait")!).sort(), ["maxChars", "pane", "panes", "returnLines", "source", "timeoutMs", "until"]);
+  assert.deepEqual(required(byName.get("subagent_wait")!), [], "no required property: exactly-one pane/panes is a core validation rule (rejects before any action)");
+  const waitProps = (byName.get("subagent_wait")!.parameters as { properties: Record<string, unknown> }).properties;
+  assert.equal(waitProps.boundedWaitMs, undefined);
+  assert.equal(waitProps.continuation, undefined);
+  // panes: nonempty array of pane ids; until: literal union first|all
+  const panesSchema = waitProps.panes as { type?: string; items?: { type?: string }; minItems?: number };
+  assert.equal(panesSchema.type, "array", "panes is an array of pane ids");
+  assert.equal(panesSchema.items?.type, "string", "panes items are strings");
+  assert.equal(panesSchema.minItems, 1, "panes must be nonempty");
+  const untilSchema = waitProps.until as { anyOf?: Array<{ const?: string }> };
+  const untilValues = (untilSchema.anyOf ?? []).map((s) => s.const).filter(Boolean) as string[];
+  assert.deepEqual(untilValues, ["first", "all"], "until is exactly the multi-pane modes");
 
   // read: returnLines/maxChars/source; no lines/raw/tailChars
   assert.deepEqual(props(byName.get("subagent_read")!).sort(), ["maxChars", "pane", "returnLines", "source"]);
@@ -348,6 +359,113 @@ test("descriptions: pane is the sole address; submit-only; no continuation", asy
   assert.match(byName.get("subagent_interrupt")!.description, /no guaranteed-abort claim/);
   assert.match(byName.get("subagent_prompt")!.description, /blocked/);
   assert.match(byName.get("subagent_prompt")!.description, /working|busy/i);
+});
+
+test("wait description documents the multi-pane contract (panes + until, first/all, needs-attention)", async () => {
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: makeFakeService() as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const byName = new Map(fake.tools.map((t) => [t.name, t]));
+  const d = byName.get("subagent_wait")!.description;
+  assert.match(d, /panes/, "multi-pane addressing is visible to the model");
+  assert.match(d, /until/);
+  assert.match(d, /"first"|first/);
+  assert.match(d, /"all"|all/);
+  assert.match(d, /exactly one/i);
+  assert.match(d, /never reported as success|not.*success|needs_attention/i);
+});
+
+// ---------------------------------------------------------------------------
+// Registration-level multi-wait wiring (guards against core-only suites:
+// the registered schema must reach the multi-pane core, not just the tests)
+// ---------------------------------------------------------------------------
+
+async function runWait(params: Record<string, unknown>, fake: FakePi): Promise<{
+  content: Array<{ type: string; text: string }>;
+  details: Record<string, unknown>;
+  structuredContent: Record<string, unknown>;
+  isError: boolean;
+}> {
+  const byName = new Map(fake.tools.map((t) => [t.name, t]));
+  return (await byName.get("subagent_wait")!.execute("call-1", params, undefined, undefined, fake.ctx)) as {
+    content: Array<{ type: string; text: string }>;
+    details: Record<string, unknown>;
+    structuredContent: Record<string, unknown>;
+    isError: boolean;
+  };
+}
+
+test("registration: multi-pane wait params reach the core (panes + until pass the schema and dispatch)", async () => {
+  let captured: Record<string, unknown> | undefined;
+  const svc = makeFakeService(async (op, args) => {
+    if (op === "wait") captured = args;
+    return {
+      ok: true, outcome: "multi_wait", phase: "wait", until: "first",
+      panes: ["wF:p9", "wF:p10"], winner: "wF:p9",
+      results: [{ pane: "wF:p9", outcome: "terminal_observed", status: "done", code: "snapshot", observation: "snapshot" }],
+      stillPending: [],
+      hint: "ok",
+    };
+  });
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const r = await runWait({ panes: ["wF:p9", "wF:p10"], until: "first", timeoutMs: 1000 }, fake);
+  assert.equal(r.isError, false, "multi-pane call is not treated as an error");
+  assert.ok(captured, "the wait dispatch reached the core");
+  assert.deepEqual(captured!.panes, ["wF:p9", "wF:p10"], "panes reach the core unmodified");
+  assert.equal(captured!.until, "first", "until reaches the core");
+  assert.equal(captured!.pane, undefined, "no phantom single-pane pane");
+  assert.equal(r.structuredContent.outcome, "multi_wait");
+  assert.equal(r.structuredContent.winner, "wF:p9");
+  assert.match(r.content[0].text, /multi_wait/);
+  assert.match(r.content[0].text, /winner=wF:p9/);
+});
+
+test("registration: multi-pane until=all reaches the core and maps the barrier result", async () => {
+  let captured: Record<string, unknown> | undefined;
+  const svc = makeFakeService(async (op, args) => {
+    if (op === "wait") captured = args;
+    return {
+      ok: false, outcome: "multi_wait", phase: "wait", until: "all",
+      panes: ["wF:p9"], winner: null, stillPending: ["wF:p9"],
+      results: [{ pane: "wF:p9", outcome: "timeout", status: "working", code: "timeout", observation: "snapshot" }],
+      code: "partial",
+      hint: "partial",
+    };
+  });
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const r = await runWait({ panes: ["wF:p9"], until: "all", timeoutMs: 100 }, fake);
+  assert.equal(r.isError, true, "a partial barrier maps to isError");
+  assert.equal(captured!.until, "all");
+  assert.deepEqual((r.structuredContent.stillPending as unknown[]), ["wF:p9"]);
+});
+
+test("registration: single-pane wait still dispatches with only pane (no panes/until leaked)", async () => {
+  let captured: Record<string, unknown> | undefined;
+  const svc = makeFakeService(async (op, args) => {
+    if (op === "wait") captured = args;
+    return { ok: true, outcome: "terminal_observed", phase: "wait", pane: "wF:p9", status: "done", code: "snapshot", observation: "snapshot" };
+  });
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const r = await runWait({ pane: "wF:p9", timeoutMs: 1000 }, fake);
+  assert.equal(r.isError, false);
+  assert.equal(captured!.pane, "wF:p9");
+  assert.equal(captured!.panes, undefined, "single-pane call must not carry panes");
+  assert.equal(captured!.until, undefined, "single-pane call must not carry until");
+  assert.equal(r.structuredContent.outcome, "terminal_observed");
+});
+
+test("registration: core validation codes for invalid multi-wait addressing surface as tool errors", async () => {
+  const svc = makeFakeService(async (op) => {
+    if (op === "wait") return { ok: false, outcome: "error", phase: "validation", code: "until_required", hint: 'until must be "first" or "all" when panes is given' };
+    return { ok: true, outcome: "ok", phase: "ok" };
+  });
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"], env: { HERDR_PANE_ID: "wF:p1" } });
+  const r = await runWait({ panes: ["wF:p9"], timeoutMs: 1000 }, fake);
+  assert.equal(r.isError, true);
+  assert.equal(r.structuredContent.code, "until_required", "missing until is a validation error, not a silent single-pane wait");
 });
 
 // ---------------------------------------------------------------------------
@@ -605,4 +723,21 @@ test("packaging: no .sub_agent_conf in the extension source", () => {
     const content = fs.readFileSync(path.join(process.cwd(), "src", f), "utf8");
     assert.ok(!content.includes(".sub_agent_conf"), `${f} must not reference .sub_agent_conf`);
   }
+});
+
+test("registration: model-visible multi summary includes settled sequence, attribution and console", async () => {
+  const svc = makeFakeService(async () => ({
+    ok: true, outcome: "multi_wait", phase: "wait", until: "first",
+    panes: ["wF:p9"], winner: "wF:p9", stillPending: [],
+    results: [{ pane: "wF:p9", outcome: "terminal_observed", status: "done", seq: 41,
+      code: "state_changed_after_submission", observation: "may_reflect_prior_turn", delivery: "acknowledged",
+      console: "bounded winner 🧵", consoleSource: "agent" }],
+  }));
+  const fake = makeFakePi();
+  registerSubagentHerdr(fake.pi, { service: svc as RegistrationDeps["service"] });
+  const r = await runWait({ panes: ["wF:p9"], until: "first" }, fake);
+  assert.match(r.content[0].text, /seq=41/);
+  assert.match(r.content[0].text, /may_reflect_prior_turn/);
+  assert.match(r.content[0].text, /acknowledged/);
+  assert.match(r.content[0].text, /bounded winner 🧵/);
 });

@@ -1,0 +1,206 @@
+{
+  "timestamp": "2026-10-03T12:07:39.012Z",
+  "mechanism": "independent deterministic deferred-transport probes against built current source; no real panes touched",
+  "findings": [
+    {
+      "claim": "first returns at first observed terminal and selects chronological winner",
+      "expected": {
+        "returnedAfterFirst": true,
+        "winner": "wF:p10"
+      },
+      "actual": {
+        "returnedAfterFirst": false,
+        "winner": "wF:p9"
+      },
+      "passed": false,
+      "result": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "first",
+        "panes": [
+          "wF:p9",
+          "wF:p10"
+        ],
+        "results": [
+          {
+            "pane": "wF:p9",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 11,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "terminal state observed by this call; no pending submission context, so this did not observe a submission turn \u2014 not proof of task completion"
+          },
+          {
+            "pane": "wF:p10",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 11,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "terminal state observed by this call; no pending submission context, so this did not observe a submission turn \u2014 not proof of task completion"
+          }
+        ],
+        "winner": "wF:p9",
+        "stillPending": [],
+        "hint": "a fresh terminal observation was observed by this call; not proof of task completion"
+      }
+    },
+    {
+      "claim": "mid-flight caller cancellation aborts local monitors promptly",
+      "expected": {
+        "returnedOnAbort": true,
+        "abortedSignals": [
+          true,
+          true
+        ]
+      },
+      "actual": {
+        "returnedOnAbort": false,
+        "abortedSignals": [
+          false,
+          false
+        ]
+      },
+      "passed": false,
+      "result": {
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "wF:p9",
+          "wF:p10"
+        ],
+        "results": [
+          {
+            "pane": "wF:p9",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 11,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "terminal state observed by this call; no pending submission context, so this did not observe a submission turn \u2014 not proof of task completion"
+          },
+          {
+            "pane": "wF:p10",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 11,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "terminal state observed by this call; no pending submission context, so this did not observe a submission turn \u2014 not proof of task completion"
+          }
+        ],
+        "winner": null,
+        "stillPending": [],
+        "ok": false,
+        "code": "aborted",
+        "hint": "aborted; local CLI resources reaped, the worker panes were not interrupted or closed"
+      }
+    },
+    {
+      "claim": "all blocked must not be reported as success",
+      "expected": {
+        "ok": false
+      },
+      "actual": {
+        "ok": true
+      },
+      "passed": false,
+      "result": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "all",
+        "panes": [
+          "wF:p9",
+          "wF:p10"
+        ],
+        "results": [
+          {
+            "pane": "wF:p9",
+            "outcome": "needs_attention",
+            "status": "blocked",
+            "seq": 10,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "current terminal state snapshot; no pending submission context, so this did not observe the turn \u2014 not proof of task completion"
+          },
+          {
+            "pane": "wF:p10",
+            "outcome": "needs_attention",
+            "status": "blocked",
+            "seq": 10,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "current terminal state snapshot; no pending submission context, so this did not observe the turn \u2014 not proof of task completion"
+          }
+        ],
+        "winner": null,
+        "stillPending": [],
+        "hint": "all panes produced terminal observations under the shared deadline"
+      }
+    },
+    {
+      "claim": "reused terminal identity must not settle old submission or win",
+      "expected": {
+        "settled": false,
+        "winner": null
+      },
+      "actual": {
+        "settled": true,
+        "winner": "wF:p9"
+      },
+      "passed": false,
+      "result": {
+        "ok": true,
+        "outcome": "multi_wait",
+        "phase": "wait",
+        "until": "first",
+        "panes": [
+          "wF:p9",
+          "wF:p10"
+        ],
+        "results": [
+          {
+            "pane": "wF:p9",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 10,
+            "code": "terminal_seen_during_submission",
+            "observation": "terminal_seen_during_submission",
+            "delivery": "acknowledged",
+            "hint": "terminal state already observed at submission time (same sequence); settled once; not proof of task completion"
+          },
+          {
+            "pane": "wF:p10",
+            "outcome": "terminal_observed",
+            "status": "done",
+            "seq": 10,
+            "code": "snapshot",
+            "observation": "snapshot",
+            "hint": "current terminal state snapshot; no pending submission context, so this did not observe the turn \u2014 not proof of task completion"
+          }
+        ],
+        "winner": "wF:p9",
+        "stillPending": [],
+        "hint": "a fresh terminal observation was observed by this call; not proof of task completion"
+      }
+    }
+  ],
+  "sourceSha256": {
+    "src/core.ts": "46f217969b5a42b667a5bcce0b33d0ada7575486a1c8396775dc7e958b13027b",
+    "src/index.ts": "83503a9c8411f6f3806b9dbbb82097ee7234c6f95a8475f3ed5aad8b2c4ee465",
+    "tests/multi_wait.test.ts": "15dd873492218b7d6703f6128387941133e436d473d57ace8f7bd0d23ac1d502"
+  },
+  "existingSuite": {
+    "command": "npm run check",
+    "passed": 202,
+    "failed": 0,
+    "skipped": 0,
+    "log": "agent/multi-wait/root-check.log",
+    "qualification": "Existing suite passing does not cover the four reproduced contract violations."
+  },
+  "acceptance": "BLOCKED at core level; native verification deferred until corrections."
+}
