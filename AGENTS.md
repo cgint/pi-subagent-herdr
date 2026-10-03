@@ -28,7 +28,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Memory Checkpoint:** Before concluding meaningful work, identify durable findings, update canonical files, prune stale notes, and report updates clearly.
 - **Memory Boundary:** Repository-owned docs (`AGENTS.md`, `PROJECT_OVERVIEW.md`, `docs/`) hold durable knowledge. `agent/` is strictly for agent-internal ephemeral scratch/work artifacts.
 
-## Phase state (2026-10-02)
+## Phase state (2026-10-03)
 - 0.2.0 ergonomic contract implemented (9 tools, pane sole address, two-tier freshness, console spread isolation); unit test suite passes (count is not a contract). Automated acceptance and bounded native evidence/limits: docs/ergonomic_acceptance.md. Busy steering, timeout recovery and final corrections are unit-verified; human testing follows the authorized GitHub push. Unit passage alone is not acceptance; cite timestamped observations, never a permanent count.
 - Current validated host: Pi 1.0.0, Herdr 0.9.3, Node 22.23.3, TypeBox 1.3.27. Initial registration/footer controls were recorded on Pi 0.99.1. Host SDK/pi-ai/TypeBox are wildcard peers; exact local dev pins follow the validated host.
 - Settled: distinct subagent_* names; Escape interrupts, close terminates; reuse the worker runtime, no positional tasks, prompt only after managed detection; terminal waits include idle+done+blocked, delivery/identity/working evidence gates; footer via ctx.ui.setStatus.
@@ -38,9 +38,17 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - Verifier-owned test workers/managers/workspaces independently absent. Other-repository Firstmates may remain available as peers, not cleanup targets. Historical pane handles are never reusable; no buddy/user pane was controlled.
 - Authorized always-on runtime loading and fresh native editable-controller→readonly-child integration verified; evidence/limits: docs/evidence/nested_worker_live.json. Readonly workers load the extension but their --tools allowlist excludes native tools; default start mode is readonly, so recursive controllers must explicitly be editable.
 
-## Current ergonomic adaptation (2026-10-02)
+## Current ergonomic adaptation (2026-10-03)
 
-User authorizes a commit-all checkpoint followed by one or two controller/reviewer/worker implementation teams. Agreed lead/buddy contract and intermediate reasoning: `docs/tool_usage_review.md`. Keep nine session-derived commands; pane ID is the only caller-facing address, no public continuation/cursor. Simplify permission barriers and combine useful wait/console and close/verification workflows; preserve proven startup delivery and honest state-versus-task semantics. Use one team with a sole source writer for tightly coupled core/index/tests, independent readonly reviewer and controller. Internal pending context is memory-only, not a persistent task registry. No hacks, automatic CLI fallbacks, overengineering, multiplexer-adapter expansion, external runtime/config/model edits, packaging or push. Firstmate owns integration and acceptance; user-designated buddy remains an equal-level peer, never a team cleanup resource.
+Automated acceptance and exact coverage/limits are in `docs/ergonomic_acceptance.md`;
+`docs/tool_usage_review.md` retains the agreed design and historical team discussion.
+The user authorizes scoped source/tests/version/canonical-doc commit and normal GitHub
+push for later human testing. The earlier checkpoint/implementation-team phase is
+complete. Firstmate owns strategy, independent inspection, acceptance and publication;
+bounded integration/review workers do not inherit commit/push authority. The buddy
+remains an equal-level peer, never a cleanup resource. Pending submission context is
+memory-only. No research changes, new orchestration, installed runtime/config/model
+edits, packaging/publication or force push belong to this goal.
 
 ## Declared limits / follow-up
 - Installed readonly inline-brief parser quirk persists on0.99.1/1.0.0; extension avoids it via post-detection prompt. Later authorized extension-loading rollout does not repair or rely on positional briefs.
