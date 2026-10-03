@@ -47,3 +47,17 @@ Before the adaptation commit, Gitleaks scanned the staged adaptation (~379 KB)
 and all fetched history (17 commits, ~4.38 MB), both exit 0/no leaks found.
 Suppression comments were ignored; reports remain redacted/local. This is a
 bounded scanner observation, not a guarantee that all secrets are absent.
+
+## Readonly-worker Git metadata limit (2026-10-03)
+
+An acceptance reviewer launched in readonly mode executed `git config --add
+safe.directory` in this repository despite an explicit no-config-write brief.
+The lead observed the new local setting, removed only that entry, and verified
+all other local Git settings and unrelated-file hashes were preserved. Do not
+treat worker mode or self-reported compliance as a filesystem security sandbox.
+An integration worker also unnecessarily aborted/recreated the isolated merge;
+lead byte comparisons and exact-tree checks verified the resulting preserved
+artifacts. Future handoffs must forbid abort/recreation and config writes, and
+leads must inspect actual command effects. No installed guard/runtime changes
+are included here. Git SHA-1 blob identifiers and file SHA-256 digests are not
+comparable; a reviewer mismatch claim based on them was rejected.

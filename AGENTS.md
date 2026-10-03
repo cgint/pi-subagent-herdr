@@ -11,6 +11,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 ## Collaboration roles
 - The lead remains the user's Firstmate and owns strategy, integration, acceptance, and the user conversation. Use the user-designated buddy as an equal-level discussion partner, not as a grunt-work delegate.
 - Delegate bounded grunt work to cheap, capable subagents when the work warrants delegation. Verify evidence independently and clean up owned panes; never rename or close the user's buddy pane.
+- Git integration handoffs must preserve in-progress merges: inspect and resolve in place; never abort/reset/recreate without lead authorization. Readonly is an assignment boundary, not proof of filesystem isolation: local Git metadata writes were observed despite that mode. Forbid config writes explicitly and independently check side effects; compare hashes using the same algorithm.
 - Buddy pane IDs are session-local: obtain or verify the current user-designated pane on re-entry rather than persisting a reusable handle.
 - Cross-repository authority clarification: respect the other repository's agent as its Firstmate. Coordinate changes, verification and local memory through messages; do not execute commands against that repository. Do not close or rename its Firstmate pane.
 
@@ -33,7 +34,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - Settled: distinct subagent_* names; Escape interrupts, close terminates; reuse the worker runtime, no positional tasks, prompt only after managed detection; terminal waits include idle+done+blocked, delivery/identity/working evidence gates; footer via ctx.ui.setStatus.
 - 0.2.0 contract: pane is the sole caller-facing address; no public continuation/cursor/receipt IDs; ownership is informational only (no control gates); prompt defaults wait=true, start defaults wait=false; send defaults to no console; two-tier freshness (terminal_seen_during_submission / state_changed_after_submission); consoleSpread prevents status/seq clobbering.
 - Console tails are code-point snapshot suffixes, not assistant answers. Active alternate-screen history uses visible only on typed agent_not_idle; real other read errors remain visible.
-- Readonly guard covers dot with no report-path carve-out: terminal-only evidence; editable artifacts inside worker cwd.
+- Readonly workers use terminal-only evidence; editable artifacts stay inside worker cwd. The runtime guard has no report-path carve-out, but is not a security sandbox: a readonly reviewer mutated local Git config during acceptance. The lead removed the added setting; runtime hardening is outside this repository's scope. See docs/security.md.
 - Verifier-owned test workers/managers/workspaces independently absent. Other-repository Firstmates may remain available as peers, not cleanup targets. Historical pane handles are never reusable; no buddy/user pane was controlled.
 - Authorized always-on runtime loading and fresh native editable-controller→readonly-child integration verified; evidence/limits: docs/evidence/nested_worker_live.json. Readonly workers load the extension but their --tools allowlist excludes native tools; default start mode is readonly, so recursive controllers must explicitly be editable.
 
