@@ -112,20 +112,20 @@ The `pi` key in `package.json` declares the extension entry and its bundled skil
 {
   "pi": {
     "extensions": ["./src/index.ts"],
-    "skills": ["./skills/firstmate", "./skills/pairing", "./skills/handoff", "./skills/subagent-supervision", "./skills/bootstrap-pairing-memory"]
+    "skills": ["./skills/subagent-firstmate", "./skills/subagent-pairing", "./skills/subagent-handoff", "./skills/subagent-herdr-supervision", "./skills/subagent-bootstrap-pairing-memory"]
   }
 }
 ```
 
-The package serves five behavior-first skills:
+The package serves five subagent-scoped skills:
 
-- `firstmate`: sustained-work strategy, integration, and acceptance;
-- `pairing`: grounded collaboration and durable repository memory;
-- `handoff`: bounded assignments and compact evidence reports;
-- `subagent-supervision`: native `subagent_*` worker lifecycle operations;
-- `bootstrap-pairing-memory`: explicit-only initialization of collaboration memory.
+- `subagent-firstmate`: sustained subagent-work strategy, integration, and acceptance;
+- `subagent-pairing`: grounded subagent collaboration and durable repository memory;
+- `subagent-handoff`: bounded subagent assignments and compact evidence reports;
+- `subagent-herdr-supervision`: native `subagent_*` Herdr worker lifecycle operations;
+- `subagent-bootstrap-pairing-memory`: explicit-only initialization of subagent collaboration memory.
 
-Pi resolves duplicate skill names by precedence, so an existing user- or project-level skill with the same name wins; package skills are coherent defaults, not overrides. The external runtime lookup still uses its installed `sub-agent-herdr-supervisor` directory; that internal dependency is distinct from the public `subagent-supervision` skill.
+The `subagent-` prefix keeps these public skills distinct from generic collaboration skills. `herdr` appears only in `subagent-herdr-supervision`, whose responsibility is specifically Herdr pane lifecycle control. The external runtime lookup still uses its installed legacy `sub-agent-herdr-supervisor` directory; that compatibility dependency is distinct from the public `subagent-herdr-supervision` skill.
 
 ## Dependencies / profile / runtime configuration
 

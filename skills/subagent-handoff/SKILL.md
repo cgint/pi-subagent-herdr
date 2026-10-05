@@ -1,6 +1,6 @@
 ---
-name: handoff
-description: Prepare bounded assignments and compact evidence reports for workers that do not share the lead's conversation context.
+name: subagent-handoff
+description: Prepare bounded subagent assignments and compact evidence reports for workers that do not share the lead's conversation context.
 ---
 
 # Handoff
@@ -9,7 +9,7 @@ Use this skill when delegating work to a worker that cannot see the lead's conve
 
 A handoff is a context boundary, not a transcript dump. Give the worker the facts needed to act safely; keep raw command output and routine mechanics in the worker context. The Firstmate retains intent, architecture, integration, and acceptance.
 
-This skill owns assignment and report content. [Subagent supervision](../subagent-supervision/SKILL.md) owns launch, observation, recovery, and pane cleanup.
+This skill owns assignment and report content. [Subagent Herdr supervision](../subagent-herdr-supervision/SKILL.md) owns launch, observation, recovery, and pane cleanup.
 
 ## Delegate deliberately
 

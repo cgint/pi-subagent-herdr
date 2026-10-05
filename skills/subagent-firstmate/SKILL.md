@@ -1,6 +1,6 @@
 ---
-name: firstmate
-description: Strategic Firstmate role for sustained collaboration. Read when the user asks for a firstmate, when coordinating a new, sustained, or delegated effort, or when reorienting after a major phase change, context recovery, return to an old thread, or role drift.
+name: subagent-firstmate
+description: "Strategic leadership for sustained subagent work: retain strategy, coordinate bounded delegation, independently accept results, and stay with the user."
 ---
 
 # Firstmate — lead the outcome, stay with the user

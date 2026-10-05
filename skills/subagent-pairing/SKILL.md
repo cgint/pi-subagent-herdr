@@ -1,6 +1,6 @@
 ---
-name: pairing
-description: Maintain grounded collaboration and durable repository memory through critical, constructive, evidence-based partnership.
+name: subagent-pairing
+description: Maintain grounded subagent collaboration and durable repository memory through critical, constructive, evidence-based partnership.
 ---
 
 # Pairing
@@ -30,7 +30,7 @@ Persist durable decisions, constraints, evidence pointers, terminology, and open
 
 ## Boundaries
 
-- [firstmate](../firstmate/SKILL.md) owns sustained-work strategy, integration, and acceptance.
-- [handoff](../handoff/SKILL.md) owns bounded worker assignments and reports.
-- [subagent-supervision](../subagent-supervision/SKILL.md) owns native worker lifecycle operations.
-- [bootstrap-pairing-memory](../bootstrap-pairing-memory/SKILL.md) initializes this stewardship model only when explicitly requested.
+- [subagent-firstmate](../subagent-firstmate/SKILL.md) owns sustained-work strategy, integration, and acceptance.
+- [subagent-handoff](../subagent-handoff/SKILL.md) owns bounded worker assignments and reports.
+- [subagent-herdr-supervision](../subagent-herdr-supervision/SKILL.md) owns native worker lifecycle operations.
+- [subagent-bootstrap-pairing-memory](../subagent-bootstrap-pairing-memory/SKILL.md) initializes this stewardship model only when explicitly requested.

@@ -1,6 +1,6 @@
 ---
-name: subagent-supervision
-description: "Operational supervision for bounded workers: launch, observe, recover, and retire them with native subagent_* tools while retaining evidence-based acceptance and cleanup."
+name: subagent-herdr-supervision
+description: "Operational supervision for bounded Herdr workers: launch, observe, recover, and retire them with native subagent_* tools while retaining evidence-based acceptance and cleanup."
 ---
 
 # Subagent supervision
@@ -12,7 +12,7 @@ This is an operational skill. Use the native `subagent_*` tools as the normal co
 ## Before launch
 
 1. Decide that delegation is worthwhile. Do trivial reads, obvious edits, and immediate checks directly.
-2. Prepare a complete handoff using [handoff](../handoff/SKILL.md): goal, success criteria, exact `cwd`, allowed and forbidden paths/actions, starting evidence, required checks, stop rule, and expected report.
+2. Prepare a complete handoff using [subagent-handoff](../subagent-handoff/SKILL.md): goal, success criteria, exact `cwd`, allowed and forbidden paths/actions, starting evidence, required checks, stop rule, and expected report.
 3. Choose `readonly` for scouting/review and `editable` only for bounded implementation. A readonly worker cannot call native lifecycle tools; a recursive controller must be explicitly editable.
 4. Treat a user-designated peer as external. Do not rename, interrupt, or close it.
 5. A controller records every child it launches in a lead-visible registry: pane ID, role, operating owner, lifecycle state, and final keep/close disposition. Update it at launch and closure so the lead can recover a child if the controller fails.

@@ -29,15 +29,18 @@ const HOST_PACKAGES = [
 ];
 
 const BUNDLED_SKILLS = [
-  "firstmate",
-  "pairing",
-  "handoff",
-  "subagent-supervision",
-  "bootstrap-pairing-memory",
+  "subagent-firstmate",
+  "subagent-pairing",
+  "subagent-handoff",
+  "subagent-herdr-supervision",
+  "subagent-bootstrap-pairing-memory",
 ];
 
 test("packaging: bundles declared skills in the package artifact", () => {
   assert.ok(packageJson.files?.includes("skills"));
+  for (const name of BUNDLED_SKILLS) {
+    assert.match(name, /^subagent-/);
+  }
   assert.deepEqual(
     packageJson.pi?.skills,
     BUNDLED_SKILLS.map((name) => `./skills/${name}`),

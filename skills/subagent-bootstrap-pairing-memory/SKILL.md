@@ -1,6 +1,6 @@
 ---
-name: bootstrap-pairing-memory
-description: Explicitly initialize repository-owned collaboration memory and its ongoing stewardship contract.
+name: subagent-bootstrap-pairing-memory
+description: Explicitly initialize repository-owned subagent collaboration memory and its ongoing stewardship contract.
 disable-model-invocation: true
 ---
 

@@ -12,11 +12,11 @@
       "./src/index.ts"
     ],
     "skills": [
-      "./skills/firstmate",
-      "./skills/pairing",
-      "./skills/handoff",
-      "./skills/subagent-supervision",
-      "./skills/bootstrap-pairing-memory"
+      "./skills/subagent-firstmate",
+      "./skills/subagent-pairing",
+      "./skills/subagent-handoff",
+      "./skills/subagent-herdr-supervision",
+      "./skills/subagent-bootstrap-pairing-memory"
     ]
   },
   "files": [
