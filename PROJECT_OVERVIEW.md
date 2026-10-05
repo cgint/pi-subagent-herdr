@@ -1,7 +1,7 @@
 # Project Overview: pi-subagent-herdr
 
 ## Goal
-Replace the bash-heavy `sub-agent-herdr-supervisor` workflow with a native TypeScript Pi extension for Herdr subagent control. Authoritative requirements R-1 through R-10 are in `REQUIREMENTS.md` (including pane ID in the bottom status line).
+Keep Herdr as the single operational basis, with a native TypeScript Pi extension making agents' most-used Herdr operations convenient. Preserve useful session-derived helpers without building a separate orchestration framework. Pi coordinating → Herdr → Pi executing is both a pragmatic setup and an experimental foundation for broader deliberate-agent collaboration. Authoritative requirements R-1 through R-10 and confirmed scope/design constraints are in `REQUIREMENTS.md` (including pane ID in the bottom status line).
 
 ## Current phase
 0.2.0 ergonomic contract implemented (9 tools, pane sole address, two-tier freshness, console spread isolation). Unit test suite passes (count is not a contract). Automated acceptance and bounded native evidence/limits: docs/ergonomic_acceptance.md. Busy steering, timeout recovery and final corrections are unit-verified; human testing follows the authorized GitHub push. Read docs/live_verification.md for exact originals/version scope and declared limits; docs/acceptance.md retains historical live gates. First-version SDK/package smoke, native lifecycle, functional batch, environment, ownership/cancel and cleanup are historical evidence, not a new adapted-code live pass. Later authorized always-on runtime loading has a fresh deployed native editable-controller→readonly-child proof in docs/evidence/nested_worker_live.json. Readonly allowlists exclude native tools, so recursive controllers must explicitly be editable. No worker-model task-completion guarantee or statistical reliability claim.
@@ -14,6 +14,7 @@ Replace the bash-heavy `sub-agent-herdr-supervisor` workflow with a native TypeS
 5. `docs/HANDOFF.md` — continuation steps and cross-machine dependencies.
 
 ## Document map
+- `docs/pi_subagents_gap_analysis.md`: ecosystem findings and the user-confirmed Herdr-plus-wrapper direction; broader deliberate-agent context and unverified protocol boundaries, not migration authorization.
 - `docs/plan_2_design.md`: the approved-by-delegation design (tool surface, outcomes, verification gates).
 - `docs/acceptance.md`: current acceptance state and live gates per requirement.
 - `plan_1_information_gathering.md`, `docs/plan.md`: investigation plans, not architecture specifications.
