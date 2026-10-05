@@ -688,19 +688,19 @@ test("ownership: start persists via appendEntry with the session id", async () =
 // resolveRuntimeDir
 // ---------------------------------------------------------------------------
 
-test("resolveRuntimeDir: explicit flag wins over env and profile", () => {
+test("resolveRuntimeDir: explicit flag wins over env and bundled default", () => {
   const dir = resolveRuntimeDir("/explicit/path", { PI_SUBAGENT_RUNTIME_DIR: "/env/path" }, "/home/user");
   assert.equal(dir, "/explicit/path");
 });
 
-test("resolveRuntimeDir: env wins over profile discovery", () => {
+test("resolveRuntimeDir: env wins over bundled default", () => {
   const dir = resolveRuntimeDir(undefined, { PI_SUBAGENT_RUNTIME_DIR: "/env/path" }, "/home/user");
   assert.equal(dir, "/env/path");
 });
 
-test("resolveRuntimeDir: no flag, no env, no profiles -> undefined", () => {
-  const dir = resolveRuntimeDir(undefined, {}, "/home/no-profiles-here-xyz");
-  assert.equal(dir, undefined);
+test("resolveRuntimeDir: no overrides selects bundled directory, not legacy profile scanning", () => {
+  const dir = resolveRuntimeDir(undefined, {}, "/installed package/skills/scripts");
+  assert.equal(dir, "/installed package/skills/scripts");
 });
 
 // ---------------------------------------------------------------------------

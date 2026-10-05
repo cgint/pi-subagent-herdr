@@ -6,6 +6,16 @@ Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/l
 
 ## Current outcome
 
+Later user-authorized shell self-containment bundles worker runtime and profile helper
+inside the package. Default discovery no longer scans legacy skills; profiles default
+to minimal when available, and workers load the local installed extension. Extracted-
+package isolation tests and fresh native readonly/editable/nested probes passed; owned
+panes/fixtures independently cleaned. User authorized commit and normal GitHub push for installation/testing. No installed
+rollout was performed and legacy files remain.
+Details/prerequisites/provenance: `docs/self_contained_runtime.md`; original bounded
+evidence: `docs/evidence/self_contained_runtime.json`. Retirement requires installing
+this change, refreshing existing sessions/overrides and checking shared consumers.
+
 Later multi-pane wait source accepted by Firstmate on 2026-10-03, after direct core/
 registration correction, failing-first regressions, independent secondmate critique
 and native originals/PIDs/oracles. Contract and bounds: `docs/multi_pane_wait.md`;

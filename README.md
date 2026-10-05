@@ -138,7 +138,17 @@ directory is resolved with this precedence:
 
 1. **CLI flag** `--subagent-herdr-runtime-dir <path>` (registered by the extension)
 2. **Environment** `PI_SUBAGENT_RUNTIME_DIR=<path>`
-3. **Profile discovery** `~/.pi/profiles/<profile>/agent/skills/sub-agent-herdr-supervisor/scripts`
+3. **Bundled default** this installed package's `skills/subagent-herdr-supervision/scripts`.
+
+The worker runtime library and `pi-profile.sh` helper are included in that directory.
+No `~/.local/bin` supervisor/profile shell scripts are required. If profiles are
+available, workers default to `minimal`; use `PI_WORKER_PROFILE` to select another
+profile (including `default`). Without profiles, direct Pi uses `~/.pi/agent`.
+Profiles/authentication and Herdr's reporter must still exist. Third-party Pi
+extensions loaded by the runtime remain external integrations; see
+[`docs/self_contained_runtime.md`](docs/self_contained_runtime.md).
+Worker controllers load this same installed package's extension, not a GitHub cache.
+Remove obsolete runtime overrides before retiring old files; overrides still win.
 
 The supervisor must run inside a Herdr pane: `HERDR_PANE_ID` must be set in the
 environment. Without it, `subagent_start` and `subagent_list` fail with

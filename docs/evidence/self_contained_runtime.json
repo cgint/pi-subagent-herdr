@@ -1,0 +1,360 @@
+{
+  "timestamp": "2026-10-05T13:10:34.016595+00:00",
+  "scope": "package-owned shell dependencies; no installed/legacy edits",
+  "native_calls": [
+    {
+      "tool": "subagent_start",
+      "call_id": "call_3ebd642d9cb7448f93c040cc",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "terminal_observed",
+        "phase": "submission",
+        "pane": "wP:p1Q",
+        "workspace": "wP",
+        "agent": "pi",
+        "status": "done",
+        "seq": 4790,
+        "delivery": "acknowledged",
+        "owned": true,
+        "submittedWhile": "idle",
+        "consoleSource": "agent",
+        "code": "done",
+        "observation": "state_changed_after_submission",
+        "hint": "terminal state observed after confirmed delivery; not proof of task completion; verify task-specific output"
+      }
+    },
+    {
+      "tool": "subagent_close",
+      "call_id": "call_a7102731ac0241fc827e3ace",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "closed",
+        "phase": "close",
+        "pane": "wP:p1Q",
+        "code": "ok",
+        "verifiedAbsent": true,
+        "hint": "pane closed and absence verified (typed pane_not_found)",
+        "owned": false
+      }
+    },
+    {
+      "tool": "subagent_start",
+      "call_id": "call_de57ce382a704931b629dd15",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "terminal_observed",
+        "phase": "submission",
+        "pane": "wP:p1R",
+        "workspace": "wP",
+        "agent": "pi",
+        "status": "done",
+        "seq": 4794,
+        "delivery": "acknowledged",
+        "owned": true,
+        "submittedWhile": "idle",
+        "consoleSource": "agent",
+        "code": "done",
+        "observation": "state_changed_after_submission",
+        "hint": "terminal state observed after confirmed delivery; not proof of task completion; verify task-specific output"
+      }
+    },
+    {
+      "tool": "subagent_close",
+      "call_id": "call_5ca91e31e64d403b8d5b0ce9",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "closed",
+        "phase": "close",
+        "pane": "wP:p1R",
+        "code": "ok",
+        "verifiedAbsent": true,
+        "hint": "pane closed and absence verified (typed pane_not_found)",
+        "owned": false
+      }
+    },
+    {
+      "tool": "subagent_start",
+      "call_id": "call_07a882ccf31d4534975ff5c1",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "terminal_observed",
+        "phase": "submission",
+        "pane": "wP:p1S",
+        "workspace": "wP",
+        "agent": "pi",
+        "status": "done",
+        "seq": 4813,
+        "delivery": "acknowledged",
+        "owned": true,
+        "submittedWhile": "idle",
+        "consoleSource": "agent",
+        "code": "done",
+        "observation": "state_changed_after_submission",
+        "hint": "terminal state observed after confirmed delivery; not proof of task completion; verify task-specific output"
+      }
+    },
+    {
+      "tool": "subagent_close",
+      "call_id": "call_4dfd997c61dc4e6aa5de1ce9",
+      "isError": false,
+      "details": {
+        "ok": true,
+        "outcome": "closed",
+        "phase": "close",
+        "pane": "wP:p1S",
+        "code": "ok",
+        "verifiedAbsent": true,
+        "hint": "pane closed and absence verified (typed pane_not_found)",
+        "owned": false
+      }
+    }
+  ],
+  "original_child_bash_results": [
+    {
+      "session_file": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--private-var-folders-vc-7r8csfy94sx89qd8m46w5lh80000gn-T-herdr packaged runtime 4c510fns-work--/2026-10-05T13-01-54-825Z_01a10c28-1108-768c-93db-5702fce0f4dc.jsonl",
+      "entries": [
+        {
+          "type": "session",
+          "version": 3,
+          "id": "01a10c28-1108-768c-93db-5702fce0f4dc",
+          "timestamp": "2026-10-05T13:01:54.825Z",
+          "cwd": "/private/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/herdr packaged runtime 4c510fns/work"
+        },
+        {
+          "type": "model_change",
+          "id": "47c0df18",
+          "parentId": null,
+          "timestamp": "2026-10-05T13:01:57.938Z",
+          "provider": "home-llm",
+          "modelId": "qwen3.8-27b-nvfp4-dflash2-direct"
+        },
+        {
+          "type": "message",
+          "id": "7ee66b93",
+          "parentId": "d5ef6f3f",
+          "timestamp": "2026-10-05T13:02:00.071Z",
+          "message": {
+            "role": "toolResult",
+            "toolCallId": "call_2b12687897124b70afab5ea9",
+            "toolName": "bash",
+            "content": [
+              {
+                "type": "text",
+                "text": "PACKAGED_RUNTIME_OK\n"
+              }
+            ],
+            "isError": false,
+            "timestamp": 1791205320071
+          }
+        }
+      ]
+    },
+    {
+      "session_file": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--private-var-folders-vc-7r8csfy94sx89qd8m46w5lh80000gn-T-herdr packaged runtime 4c510fns-work--/2026-10-05T13-02-08-393Z_01a10c28-4608-7592-afc3-934c66c2919d.jsonl",
+      "entries": [
+        {
+          "type": "session",
+          "version": 3,
+          "id": "01a10c28-4608-7592-afc3-934c66c2919d",
+          "timestamp": "2026-10-05T13:02:08.393Z",
+          "cwd": "/private/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/herdr packaged runtime 4c510fns/work"
+        },
+        {
+          "type": "model_change",
+          "id": "cb9fdba9",
+          "parentId": null,
+          "timestamp": "2026-10-05T13:02:11.920Z",
+          "provider": "home-llm",
+          "modelId": "qwen3.8-27b-nvfp4-dflash2-direct"
+        },
+        {
+          "type": "message",
+          "id": "359f89c7",
+          "parentId": "0c793bd9",
+          "timestamp": "2026-10-05T13:02:13.737Z",
+          "message": {
+            "role": "toolResult",
+            "toolCallId": "call_89aa45ec1bb34144a4397746",
+            "toolName": "bash",
+            "content": [
+              {
+                "type": "text",
+                "text": "PACKAGED_RUNTIME_OK\n"
+              }
+            ],
+            "isError": false,
+            "timestamp": 1791205333737
+          }
+        }
+      ]
+    }
+  ],
+  "nested_originals": [
+    {
+      "session_file": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--private-var-folders-vc-7r8csfy94sx89qd8m46w5lh80000gn-T-herdr nested packaged gqa6ze8l-work--/2026-10-05T13-09-04-924Z_01a10c2e-a11b-779c-ad87-264700f6ee7d.jsonl",
+      "entries": [
+        {
+          "type": "session",
+          "version": 3,
+          "id": "01a10c2e-a11b-779c-ad87-264700f6ee7d",
+          "timestamp": "2026-10-05T13:09:04.924Z",
+          "cwd": "/private/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/herdr nested packaged gqa6ze8l/work"
+        },
+        {
+          "type": "model_change",
+          "id": "eb801670",
+          "parentId": null,
+          "timestamp": "2026-10-05T13:09:09.320Z",
+          "provider": "home-llm",
+          "modelId": "qwen3.8-27b-nvfp4-dflash2-direct"
+        },
+        {
+          "type": "message",
+          "id": "8697ea3a",
+          "parentId": "71cc648d",
+          "timestamp": "2026-10-05T13:09:29.775Z",
+          "message": {
+            "role": "toolResult",
+            "toolCallId": "call_fa37b216aa0946bea5f47574",
+            "toolName": "subagent_start",
+            "details": {
+              "ok": true,
+              "outcome": "terminal_observed",
+              "phase": "submission",
+              "pane": "wP:p1T",
+              "workspace": "wP",
+              "agent": "pi",
+              "status": "done",
+              "seq": 4812,
+              "delivery": "acknowledged",
+              "owned": true,
+              "submittedWhile": "idle",
+              "consoleSource": "agent",
+              "code": "done",
+              "observation": "state_changed_after_submission",
+              "hint": "terminal state observed after confirmed delivery; not proof of task completion; verify task-specific output",
+              "console_sha256": "9cbebe35ebfea262ce0592d18db965330ec5a22ff5a79bbdc73c70ed7348e451"
+            },
+            "isError": false,
+            "timestamp": 1791205769775
+          }
+        },
+        {
+          "type": "message",
+          "id": "c1ffd834",
+          "parentId": "57892b53",
+          "timestamp": "2026-10-05T13:09:30.443Z",
+          "message": {
+            "role": "toolResult",
+            "toolCallId": "call_b867bd9b17a6481d99757e09",
+            "toolName": "subagent_close",
+            "details": {
+              "ok": true,
+              "outcome": "closed",
+              "phase": "close",
+              "pane": "wP:p1T",
+              "code": "ok",
+              "verifiedAbsent": true,
+              "hint": "pane closed and absence verified (typed pane_not_found)",
+              "owned": false
+            },
+            "isError": false,
+            "timestamp": 1791205770443
+          }
+        }
+      ]
+    },
+    {
+      "session_file": "/Users/cgint/.pi/profiles/minimal/agent/sessions/--private-var-folders-vc-7r8csfy94sx89qd8m46w5lh80000gn-T-herdr nested packaged gqa6ze8l-work--/2026-10-05T13-09-23-869Z_01a10c2e-eb1c-7725-bc2b-683ecb724099.jsonl",
+      "entries": [
+        {
+          "type": "session",
+          "version": 3,
+          "id": "01a10c2e-eb1c-7725-bc2b-683ecb724099",
+          "timestamp": "2026-10-05T13:09:23.869Z",
+          "cwd": "/private/var/folders/vc/7r8csfy94sx89qd8m46w5lh80000gn/T/herdr nested packaged gqa6ze8l/work"
+        },
+        {
+          "type": "model_change",
+          "id": "63eedca5",
+          "parentId": null,
+          "timestamp": "2026-10-05T13:09:27.247Z",
+          "provider": "home-llm",
+          "modelId": "qwen3.8-27b-nvfp4-dflash2-direct"
+        },
+        {
+          "type": "message",
+          "id": "e396742c",
+          "parentId": "85c1c4e8",
+          "timestamp": "2026-10-05T13:09:28.867Z",
+          "message": {
+            "role": "toolResult",
+            "toolCallId": "call_b1403f57a02f47fcb1225d8b",
+            "toolName": "bash",
+            "content": [
+              {
+                "type": "text",
+                "text": "NESTED_PACKAGE_OK\n"
+              }
+            ],
+            "isError": false,
+            "timestamp": 1791205768867
+          }
+        }
+      ]
+    }
+  ],
+  "independent_cleanup": {
+    "wP:p1Q": {
+      "code": "pane_not_found",
+      "message": "pane wP:p1Q not found"
+    },
+    "wP:p1R": {
+      "code": "pane_not_found",
+      "message": "pane wP:p1R not found"
+    },
+    "wP:p1S": {
+      "code": "pane_not_found",
+      "message": "pane wP:p1S not found"
+    },
+    "wP:p1T": {
+      "code": "pane_not_found",
+      "message": "pane wP:p1T not found"
+    }
+  },
+  "automated": "npm run check; tests/runtime_packaging.test.ts uses actual extracted tarball, isolated HOME/PATH and hostile external profile helper",
+  "limits": [
+    "Configured Pi third-party integrations/auth/profiles/reporter remain external prerequisites",
+    "No global installed rollout or legacy deletion",
+    "Functional native probes, not statistical reliability or security-sandbox proof",
+    "Imported legacy orchestration test harness is not newly validated; native/package tests are acceptance evidence"
+  ],
+  "sha256_at_nested_probe": {
+    "src/index.ts": "0e40ccab2e498ec6d6c8c9067fc8ced745b9de8c2922830758876af38b76e26e",
+    "skills/subagent-herdr-supervision/scripts/herdr-worker.sh": "c1815bc4b96a700dceb3505b382d0fdd03012099b7087a5ca21c0336dff7ffd2",
+    "skills/subagent-herdr-supervision/scripts/pi-worker-runtime.sh": "21e9d7b40d66ffabb3518011a24f382c87da39e3583297559e84d3e546eb2857",
+    "skills/subagent-herdr-supervision/scripts/pi-profile.sh": "9eb7a5b30685172199f302d7e46bec1b2180b40dc3d11e0e976e8dd5e0a8a22c"
+  },
+  "final_source_sha256": {
+    "src/index.ts": "0e40ccab2e498ec6d6c8c9067fc8ced745b9de8c2922830758876af38b76e26e",
+    "skills/subagent-herdr-supervision/scripts/herdr-worker.sh": "c1815bc4b96a700dceb3505b382d0fdd03012099b7087a5ca21c0336dff7ffd2",
+    "skills/subagent-herdr-supervision/scripts/pi-worker-runtime.sh": "21e9d7b40d66ffabb3518011a24f382c87da39e3583297559e84d3e546eb2857",
+    "skills/subagent-herdr-supervision/scripts/pi-profile.sh": "1cfebf688bcc2fb7289084852a9cd8ff58d888af58a77d78f6d887f2d0d7343d"
+  },
+  "post_nested_change": "Only pi-profile.sh missing-profile diagnostic changed to stop referring to external agents_files_cp.sh; no successful launch logic changed. Final suite re-run.",
+  "final_check": {
+    "command": "npm run check",
+    "passed": 226,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "log": "agent/self-contained-check.log",
+    "shell_helpers": "PASS: Herdr agent helper contract; agent/self-contained-helpers.log"
+  },
+  "independent_review": "Advisor final review found no blocking source gap; packaging/path/permission conditions verified; active installations/shared legacy consumers remain retirement boundary."
+}

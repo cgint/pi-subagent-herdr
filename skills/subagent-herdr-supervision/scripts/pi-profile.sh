@@ -1,0 +1,121 @@
+#!/bin/bash
+# pi-profile [profile] [pi args...]
+#   profile: default, minimal, etc. (omit to list deployed profiles)
+#   pi args: passed through to pi
+#
+# Usage:
+#   pi-profile              # list deployed profiles
+#   pi-profile minimal      # run minimal profile
+#   pi-profile --list       # list deployed profiles
+#   pi-profile --update-all # update every profile (default + each named profile
+#                           # under ~/.pi/profiles) via 'pi update --all'
+
+set -euo pipefail
+
+usage() {
+  echo "Usage: pi-profile [profile] [pi args...]"
+  echo
+  echo "With no arguments, pi-profile lists the deployed profiles and exits."
+  echo
+  echo "Profiles:"
+  echo "  default             run the default profile"
+  echo "  NAME                run a named deployed profile"
+  echo
+  echo "Options:"
+  echo "  -h, --help          show this help"
+  echo "  -l, --list          list deployed profiles"
+  echo "      --update-all    update every deployed profile (the default profile"
+  echo "                      plus each named profile under ~/.pi/profiles) by"
+  echo "                      running 'pi update --all' in each; prints a"
+  echo "                      per-profile success/failure summary and exits"
+  echo "                      non-zero if any update fails"
+}
+
+if [ "$#" -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  usage
+  exit 0
+fi
+
+PI_BASE="$HOME/.pi"
+
+list_profiles() {
+  echo "Deployed pi-agent profiles:"
+  if [ -d "$PI_BASE/agent" ]; then
+    echo "  default  -> $PI_BASE/agent"
+  fi
+  if [ -d "$PI_BASE/profiles" ]; then
+    for d in "$PI_BASE/profiles"/*/; do
+      [ -d "$d" ] || continue
+      name=$(basename "$d")
+      if [ -d "$d/agent" ]; then
+        echo "  $name     -> $d/agent"
+      fi
+    done
+  fi
+}
+
+if [ $# -eq 0 ]; then
+  list_profiles
+  echo
+  echo "Tip: 'pi-profile --update-all' updates every profile; 'pi-profile -h' for full help."
+  exit 0
+fi
+
+PROFILE="$1"
+
+if [ "$PROFILE" = "--list" ] || [ "$PROFILE" = "-l" ]; then
+  list_profiles
+  exit 0
+fi
+
+if [ "$PROFILE" = "--update-all" ]; then
+  update_all_done=0
+  update_all_failed=0
+
+  run_update() {
+    local label="$1"
+    local dir="$2"
+    echo "Updating $label ..."
+    if PI_CODING_AGENT_DIR="$dir" pi update --all; then
+      update_all_done=$((update_all_done + 1))
+    else
+      update_all_failed=$((update_all_failed + 1))
+    fi
+  }
+
+  # Update default profile
+  if [ -d "$PI_BASE/agent" ]; then
+    run_update "default" "$PI_BASE/agent"
+  fi
+
+  # Update each named profile
+  if [ -d "$PI_BASE/profiles" ]; then
+    for d in "$PI_BASE/profiles"/*/; do
+      [ -d "$d" ] || continue
+      name=$(basename "$d")
+      agent_dir="$d/agent"
+      [ -d "$agent_dir" ] || continue
+      run_update "$name" "$agent_dir"
+    done
+  fi
+
+  echo
+  echo "Done: $update_all_done succeeded, $update_all_failed failed"
+  [ "$update_all_failed" -eq 0 ] && exit 0 || exit 1
+fi
+
+shift
+
+if [ "$PROFILE" = "default" ]; then
+  export PI_CODING_AGENT_DIR="$PI_BASE/agent"
+else
+  export PI_CODING_AGENT_DIR="$PI_BASE/profiles/$PROFILE/agent"
+fi
+
+if [ ! -d "$PI_CODING_AGENT_DIR" ]; then
+  echo "Profile '$PROFILE' not found at $PI_CODING_AGENT_DIR" >&2
+  echo "Create or deploy the selected Pi profile and its Herdr lifecycle integration. Use this bundled helper with --list to see available profiles." >&2
+  exit 1
+fi
+
+exec pi "$@"

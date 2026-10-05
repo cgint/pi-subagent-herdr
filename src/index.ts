@@ -14,7 +14,7 @@
 //  - session footer showing the HERDR pane id (R-10) when running in a
 //    TUI inside a herdr pane (ctx.ui.setStatus, TUI + HERDR_PANE_ID only)
 //  - worker-runtime scripts directory resolution: explicit CLI flag, then
-//    PI_SUBAGENT_RUNTIME_DIR, then the active profile's skill scripts dir
+//    PI_SUBAGENT_RUNTIME_DIR, then this package's bundled scripts dir
 //  - ownership persistence across reload/resume of the same session via
 //    pi.appendEntry / session entries (informational only: ownership is not
 //    a control gate in 0.2.0)
@@ -22,9 +22,7 @@
 // The factory performs no subprocesses, timers, or I/O beyond path checks;
 // the SubagentService is created lazily on the first session tool call.
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import type {
   AgentToolResult,
@@ -51,7 +49,6 @@ const RUNTIME_ENV = "PI_SUBAGENT_RUNTIME_DIR";
 const STATUS_KEY = "pi-subagent-herdr";
 
 /** Skill directory that owns the worker runtime scripts (installed read-only). */
-const RUNTIME_SKILL = "sub-agent-herdr-supervisor";
 
 /** 0.2.0 wait/output constants (mirrored in src/core.ts DEFAULTS). */
 const WAIT_MS = 1_800_000;
@@ -102,40 +99,16 @@ interface SubagentServiceLike {
 // Runtime directory resolution
 // ---------------------------------------------------------------------------
 
-/**
- * Resolve the herdr skill scripts directory.
- * Precedence (plan_2): explicit registered CLI flag, then PI_SUBAGENT_RUNTIME_DIR,
- * then the selected profile's skill scripts directory. Never invents a path.
- */
+/** Explicit overrides retain precedence; default assets belong to this package. */
 export function resolveRuntimeDir(
   flagValue: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
-  homeDir: string = os.homedir(),
-): string | undefined {
-  const fromFlag = typeof flagValue === "string" && flagValue.trim() !== "" ? flagValue : undefined;
-  if (fromFlag) return fromFlag;
+  bundledDir: string = fileURLToPath(new URL("../skills/subagent-herdr-supervision/scripts/", import.meta.url)),
+): string {
+  if (typeof flagValue === "string" && flagValue.trim() !== "") return flagValue;
   const fromEnv = env[RUNTIME_ENV];
   if (typeof fromEnv === "string" && fromEnv.trim() !== "") return fromEnv;
-  // Profile skill scripts directory: ~/.pi/profiles/<profile>/agent/skills/<skill>/scripts.
-  const profilesRoot = path.join(homeDir, ".pi", "profiles");
-  let profiles: string[] = [];
-  try {
-    profiles = fs.readdirSync(profilesRoot);
-  } catch {
-    return undefined;
-  }
-  for (const profile of profiles) {
-    const candidate = path.join(
-      profilesRoot,
-      profile,
-      "agent",
-      "skills",
-      RUNTIME_SKILL,
-      "scripts",
-    );
-    if (fs.existsSync(path.join(candidate, "herdr-worker.sh"))) return candidate;
-  }
-  return undefined;
+  return bundledDir;
 }
 
 // ---------------------------------------------------------------------------

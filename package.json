@@ -25,6 +25,7 @@
     "README.md",
     "REQUIREMENTS.md",
     "docs/security.md",
+    "docs/self_contained_runtime.md",
     "docs/acceptance.md",
     "docs/live_verification.md",
     "docs/evidence"

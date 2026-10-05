@@ -57,9 +57,9 @@ It states these limits plainly:
 
 ## Runtime and script boundary
 
-`src/index.ts` currently keeps `RUNTIME_SKILL = "sub-agent-herdr-supervisor"`. This is a legacy, external worker-runtime directory lookup—not the public packaged skill name. Changing it requires a separately authorized external-runtime migration.
+User-authorized self-containment now bundles `pi-worker-runtime.sh` and `pi-profile.sh` beside `herdr-worker.sh`. Native runtime discovery uses explicit flag → environment override → this package's scripts; no automatic legacy skill scan. Workers load this package's local extension entrypoint. Profiles default to minimal when available. External Pi/provider/reporter integrations remain explicit prerequisites; verification and limits are in `docs/self_contained_runtime.md`.
 
-The imported scripts are reference material, not a self-contained fallback: `herdr-worker.sh` sources `pi-worker-runtime.sh`, which is not in this package. The public skills must not claim a script fallback unless its dependencies and behavior are separately verified.
+Older shell orchestration helpers remain reference material; bundling their dependencies does not repair their historical positional-brief/parser limitations.
 
 ## Visibility and authority
 
@@ -73,4 +73,4 @@ User skills and repository instructions remain canonical for project policy. The
 2. Preserve concise behavioral descriptions. Only `subagent-herdr-supervision` uses `herdr`, because only it is specifically Herdr-based.
 3. Preserve the native operational, evidence, recovery, and acceptance safeguards established in `53a5a0b`.
 4. Verify manifest/frontmatter/link consistency, npm package contents, actual Pi skill parsing, and public-name collision avoidance.
-5. Do not modify external profiles, runtime configuration, or publication. Leave the legacy external `RUNTIME_SKILL` lookup untouched.
+5. Do not modify external profiles, runtime configuration, or publication. The separately authorized self-contained runtime change replaces the legacy lookup; it does not authorize installed-profile edits or legacy deletion.
