@@ -142,4 +142,11 @@ A delivered prompt previously retained the label `phase: preflight` despite orig
 
 ### Active console history boundary (Herdr 0.9.3, resumed Pi 1.0.0)
 
-`agent read --source recent-unwrapped --lines 100` can fail with typed `agent_not_idle` while Pi is working: reading alternate-screen history would scroll the running TUI. Use the documented `visible` source for that specific condition; do not suppress unrelated errors or fabricate an empty tail. Idle reads retain deep history. Original failure and repaired bounded live trace are reflected in `docs/evidence/visible_tail_live.json`; native repaired-path replay is pending.
+`agent read --source recent-unwrapped --lines 100` can fail with typed `agent_not_idle` while Pi is working: reading alternate-screen history would scroll the running TUI. Use the `visible` source for that specific condition; do not suppress unrelated errors or fabricate an empty tail. Idle reads retain deep history. Original failure and repaired bounded live trace are reflected in `docs/evidence/visible_tail_live.json`; native repaired-path replay is pending.
+
+## Verification re-check (2026-10-05, on a second host: pi 1.0.2, Node 26.10.0, Herdr 0.9.3)
+
+- **Live-skill `--dm-read` bug confirmed at parser level.** `pi-worker-runtime.sh:228-229` appends bare `--dm-read` in readonly mode. pi's `parseArgs` (dist/cli/args.js) treats an unknown bare `--flag` as consuming the next non-dash, non-@ token: with `--dm-read BRIEF`, `messages=[]` and the brief lands in `unknownFlags["dm-read"]` → task loss. Fix candidate `--dm-read=1` yields `messages=[BRIEF]`, `unknownFlags["dm-read"]="1"` → correct. Editable mode (no flag) is unaffected. **Not applied** (installed-skill write is out of this repo's scope); end-to-end (full worker launch) still unverified — parser-level only.
+- **`@`-prefix edge case:** a brief starting with `@file` under bare `--dm-read` goes to `fileArgs` (not `messages`) — also not delivered as a prompt. `--dm-read=1` avoids this too.
+- **Parser quirk is version-pinned:** verified on pi 1.0.2; 1.0.0-vs-1.0.2 byte parity of the unknown-flag branch not diffed. If a future pi registers `--dm-read` as a known boolean flag, the bug self-corrects — re-check on any pi upgrade.
+- **`docs/evidence/stageA_get_list_read.json` is malformed JSON** (non-whitespace after the first JSON value at offset 340) — a concatenated CLI capture, not a single JSON document. Not cited as a passing gate by the canonical docs; flagged so a future JSON validator/ingest does not choke on it. All other evidence files parse clean.
