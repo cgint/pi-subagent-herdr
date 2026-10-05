@@ -14,7 +14,8 @@ Replace the bash-heavy `sub-agent-herdr-supervisor` workflow with a native TypeS
 5. `docs/HANDOFF.md` — continuation steps and cross-machine dependencies.
 
 ## Document map
-- `docs/plan_2_design.md`: the approved-by-delegation design (tool surface, outcomes, verification gates).
+- `docs/plan_2_design.md`: authority and scope corrections; the detailed current tool/behavior contracts live in README, `docs/tool_usage_review.md`, and `docs/multi_pane_wait.md`.
+- `docs/plan_vs_reality.md`: current plan-to-source comparison and the confirmed cross-machine typecheck blocker.
 - `docs/acceptance.md`: current acceptance state and live gates per requirement.
 - `plan_1_information_gathering.md`, `docs/plan.md`: investigation plans, not architecture specifications.
 - `docs/worker*_report.md` and `docs/worker3_session_mining_report.md`: research reports (see handoff for exact mapping).

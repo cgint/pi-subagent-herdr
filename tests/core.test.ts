@@ -489,8 +489,8 @@ test("shellQuote: safe strings pass through", () => {
 });
 
 test("shellQuote: quotes paths with spaces", () => {
-  const q = shellQuote("/Users/cgint/my scripts/herdr-worker.sh");
-  assert.equal(q, "'/Users/cgint/my scripts/herdr-worker.sh'");
+  const q = shellQuote("/home/user/my scripts/herdr-worker.sh");
+  assert.equal(q, "'/home/user/my scripts/herdr-worker.sh'");
 });
 
 test("shellQuote: quotes embedded single quotes", () => {
@@ -505,7 +505,7 @@ test("shellQuote: quotes shell metacharacters", () => {
 
 test("shellQuote: POSIX shell round-trip preserves the value", () => {
   const samples = [
-    "/Users/cgint/my scripts/herdr-worker.sh",
+    "/home/user/my scripts/herdr-worker.sh",
     "a'b c",
     "$(rm -rf x); echo pwned",
     '100% & "quoted" \\ back',
