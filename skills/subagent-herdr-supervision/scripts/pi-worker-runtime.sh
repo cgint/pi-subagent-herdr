@@ -3,12 +3,12 @@
 # Prefer the deployed minimal profile; otherwise use the direct ~/.pi/agent layout.
 readonly PI_WORKER_RUNTIME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Package-owned profile selection: never execute an external pi-profile script.
-if [[ -n "${PI_WORKER_PROFILE:-}" || -d "$HOME/.pi/profiles" ]]; then
+# Profile management is external: prefer the system wrapper when available.
+if command -v pi-profile >/dev/null 2>&1; then
   readonly PI_WORKER_PROFILE="${PI_WORKER_PROFILE:-minimal}"
-  readonly -a PI_WORKER_COMMAND=(bash "$PI_WORKER_RUNTIME_DIR/pi-profile.sh" "$PI_WORKER_PROFILE")
+  readonly -a PI_WORKER_COMMAND=(pi-profile "$PI_WORKER_PROFILE")
 else
-  readonly PI_WORKER_PROFILE="default"
+  readonly PI_WORKER_PROFILE="${PI_WORKER_PROFILE:-default}"
   readonly -a PI_WORKER_COMMAND=(pi)
 fi
 
@@ -43,6 +43,10 @@ pi_worker_provider_extensions() {
 
 pi_worker_runtime_main() {
   pi_worker_profile_agent_dir >/dev/null || exit $?
+  if [[ "${PI_WORKER_COMMAND[0]}" = pi && "$PI_WORKER_PROFILE" != default ]]; then
+    printf 'worker launcher: PI_WORKER_PROFILE=%s requires system pi-profile on PATH\n' "$PI_WORKER_PROFILE" >&2
+    exit 2
+  fi
 
   local trusted_extension="$1"
   shift

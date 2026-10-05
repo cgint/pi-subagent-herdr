@@ -140,10 +140,11 @@ directory is resolved with this precedence:
 2. **Environment** `PI_SUBAGENT_RUNTIME_DIR=<path>`
 3. **Bundled default** this installed package's `skills/subagent-herdr-supervision/scripts`.
 
-The worker runtime library and `pi-profile.sh` helper are included in that directory.
-No `~/.local/bin` supervisor/profile shell scripts are required. If profiles are
-available, workers default to `minimal`; use `PI_WORKER_PROFILE` to select another
-profile (including `default`). Without profiles, direct Pi uses `~/.pi/agent`.
+The Herdr worker runtime library is included in that directory; profile management
+is not. When system `pi-profile` is on PATH, workers invoke it with `minimal` by
+default; `PI_WORKER_PROFILE` selects another profile (including `default`). Without
+that command, workers launch Pi directly. An explicit named profile requires the
+system command and fails clearly if it is missing. No global utility is modified.
 Profiles/authentication and Herdr's reporter must still exist. Third-party Pi
 extensions loaded by the runtime remain external integrations; see
 [`docs/self_contained_runtime.md`](docs/self_contained_runtime.md).

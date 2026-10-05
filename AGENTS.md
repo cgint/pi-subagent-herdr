@@ -74,5 +74,14 @@ fixture handles are evidence only, never reusable control addresses.
 ## Technical decision authority (user clarification)
 The user owns requirements and delegates technical design, implementation and acceptance to the Firstmate, supported by equal-level buddy discussion, bounded workers and independent verification. The earlier human Plan 2 approval gate is superseded; do not ask the user to approve architecture. Escalate only actual requirements/scope/authorization blockers.
 
+## Profile-management boundary (user clarification)
+
+All five packaged collaboration skills and the Herdr-specific worker runtime stay
+in this extension. Profile management is OUT: do not bundle `pi-profile.sh`.
+Use system `pi-profile` when available (minimal default), otherwise direct Pi;
+explicit named profiles require the system integration. Never modify or delete
+global `pi-profile`, shared runtime originals, cmux or other supervisors as part
+of this correction. Package-local removal is distinct from legacy Herdr retirement.
+
 ## Scope correction — repository-only extension
 Original first-version scope: user forbade changes to installed supervisor skill scripts; reuse unchanged runtime, no positional task, prompt after detection. **Targeted later authorization (2026-10-02):** user requested the authoritative `~/.local/bin` runtime/template change to always load `pi-subagent-herdr`, then explicitly requested deployment, commit and push. That repository's Firstmate owns its source/tests/skill docs, generator/deploy workflow and Git; no direct commands against it. Its reported rollout/normal push and this repository's independently verified fresh nested live probe are distinct evidence. Do not generalize authorization to unrelated external edits, config changes, force push or publication.

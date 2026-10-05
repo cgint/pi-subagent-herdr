@@ -6,11 +6,12 @@ Read AGENTS.md, REQUIREMENTS.md, docs/findings.md, docs/acceptance.md and docs/l
 
 ## Current outcome
 
-Later user-authorized shell self-containment bundles worker runtime and profile helper
-inside the package. Default discovery no longer scans legacy skills; profiles default
-to minimal when available, and workers load the local installed extension. Extracted-
-package isolation tests and fresh native readonly/editable/nested probes passed; owned
-panes/fixtures independently cleaned. User authorized commit and normal GitHub push for installation/testing. No installed
+User scope correction: profile management is OUT. Remove bundled `pi-profile.sh`,
+keep package-owned Herdr `pi-worker-runtime.sh`, and use system `pi-profile` when
+available (minimal default), otherwise direct Pi. Global originals stay untouched.
+Default runtime discovery no longer scans legacy skills; workers load the local
+installed extension. Earlier extracted-package/native evidence below predates this
+profile correction; updated package tests cover the new external integration. User authorized commit and normal GitHub push for installation/testing. No installed
 rollout was performed and legacy files remain.
 Details/prerequisites/provenance: `docs/self_contained_runtime.md`; original bounded
 evidence: `docs/evidence/self_contained_runtime.json`. Retirement requires installing

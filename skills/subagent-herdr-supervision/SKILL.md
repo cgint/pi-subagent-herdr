@@ -7,7 +7,7 @@ description: "Operational supervision for bounded Herdr workers: launch, observe
 
 Use this skill when a bounded worker provides more value than its launch, inspection, and cleanup cost. The Firstmate retains strategy, user communication, integration, and acceptance; a worker owns only its assigned task.
 
-This is an operational skill. Use the native `subagent_*` tools as the normal control plane. The worker runtime and profile helper are bundled beside this skill; no legacy supervisor script installation is required. Older shell orchestration helpers remain reference material, not the recommended control plane. Profiles default to `minimal` when available; `PI_WORKER_PROFILE` is an explicit override.
+This is an operational skill. Use the native `subagent_*` tools as the normal control plane. The Herdr worker runtime is bundled beside this skill; no legacy supervisor skill installation is required. Profile management is external: use system `pi-profile` when available, otherwise launch Pi directly. Older shell orchestration helpers remain reference material, not the recommended control plane. With system `pi-profile`, profiles default to `minimal`; `PI_WORKER_PROFILE` is an explicit override.
 
 ## Before launch
 

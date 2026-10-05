@@ -57,7 +57,7 @@ It states these limits plainly:
 
 ## Runtime and script boundary
 
-User-authorized self-containment now bundles `pi-worker-runtime.sh` and `pi-profile.sh` beside `herdr-worker.sh`. Native runtime discovery uses explicit flag → environment override → this package's scripts; no automatic legacy skill scan. Workers load this package's local extension entrypoint. Profiles default to minimal when available. External Pi/provider/reporter integrations remain explicit prerequisites; verification and limits are in `docs/self_contained_runtime.md`.
+The user clarified that profile management is outside this extension. `pi-worker-runtime.sh` stays bundled beside `herdr-worker.sh`; `pi-profile.sh` is removed. Workers invoke system `pi-profile` when available (minimal default, explicit profile override), otherwise direct Pi. Explicit named profiles require that system integration. Native runtime discovery uses explicit flag → environment override → this package's scripts; no automatic legacy skill scan. Workers load this package's local extension entrypoint. Global utilities remain untouched. External Pi/provider/reporter integrations remain explicit prerequisites; verification and limits are in `docs/self_contained_runtime.md`.
 
 Older shell orchestration helpers remain reference material; bundling their dependencies does not repair their historical positional-brief/parser limitations.
 
