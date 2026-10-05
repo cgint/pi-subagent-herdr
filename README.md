@@ -106,13 +106,26 @@ local loading.
 pi install ./pi-subagent-herdr
 ```
 
-The `pi` key in `package.json` declares the extension entry:
+The `pi` key in `package.json` declares the extension entry and its bundled skills:
 
 ```json
 {
-  "pi": { "extensions": ["./src/index.ts"] }
+  "pi": {
+    "extensions": ["./src/index.ts"],
+    "skills": ["./skills/subagent-firstmate", "./skills/subagent-pairing", "./skills/subagent-handoff", "./skills/subagent-herdr-supervision", "./skills/subagent-bootstrap-pairing-memory"]
+  }
 }
 ```
+
+The package serves five subagent-scoped skills:
+
+- `subagent-firstmate`: sustained subagent-work strategy, integration, and acceptance;
+- `subagent-pairing`: grounded subagent collaboration and durable repository memory;
+- `subagent-handoff`: bounded subagent assignments and compact evidence reports;
+- `subagent-herdr-supervision`: native `subagent_*` Herdr worker lifecycle operations;
+- `subagent-bootstrap-pairing-memory`: explicit-only initialization of subagent collaboration memory.
+
+The `subagent-` prefix keeps these public skills distinct from generic collaboration skills. `herdr` appears only in `subagent-herdr-supervision`, whose responsibility is specifically Herdr pane lifecycle control. The external runtime lookup still uses its installed legacy `sub-agent-herdr-supervisor` directory; that compatibility dependency is distinct from the public `subagent-herdr-supervision` skill.
 
 ## Dependencies / profile / runtime configuration
 

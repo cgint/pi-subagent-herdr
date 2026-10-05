@@ -10,10 +10,18 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
+    ],
+    "skills": [
+      "./skills/subagent-firstmate",
+      "./skills/subagent-pairing",
+      "./skills/subagent-handoff",
+      "./skills/subagent-herdr-supervision",
+      "./skills/subagent-bootstrap-pairing-memory"
     ]
   },
   "files": [
     "src",
+    "skills",
     "README.md",
     "REQUIREMENTS.md",
     "docs/security.md",

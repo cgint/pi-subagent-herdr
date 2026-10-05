@@ -15,7 +15,8 @@ Keep Herdr as the single operational basis, with a native TypeScript Pi extensio
 
 ## Document map
 - `docs/pi_subagents_gap_analysis.md`: ecosystem findings and the user-confirmed Herdr-plus-wrapper direction; broader deliberate-agent context and unverified protocol boundaries, not migration authorization.
-- `docs/plan_2_design.md`: the approved-by-delegation design (tool surface, outcomes, verification gates).
+- `docs/plan_2_design.md`: authority and scope corrections; the detailed current tool/behavior contracts live in README, `docs/tool_usage_review.md`, and `docs/multi_pane_wait.md`.
+- `docs/plan_vs_reality.md`: current plan-to-source comparison and the confirmed cross-machine typecheck blocker.
 - `docs/acceptance.md`: current acceptance state and live gates per requirement.
 - `plan_1_information_gathering.md`, `docs/plan.md`: investigation plans, not architecture specifications.
 - `docs/worker*_report.md` and `docs/worker3_session_mining_report.md`: research reports (see handoff for exact mapping).
