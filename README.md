@@ -106,13 +106,18 @@ local loading.
 pi install ./pi-subagent-herdr
 ```
 
-The `pi` key in `package.json` declares the extension entry:
+The `pi` key in `package.json` declares the extension entry and its bundled skills:
 
 ```json
 {
-  "pi": { "extensions": ["./src/index.ts"] }
+  "pi": {
+    "extensions": ["./src/index.ts"],
+    "skills": ["./skills/firstmate", "./skills/bootstrap-pairing-memory", "./skills/grounded-pairing-discipline", "./skills/sub-agent-handoff", "./skills/sub-agent-herdr-supervisor"]
+  }
 }
 ```
+
+The package serves these five skills with their canonical names. Pi resolves duplicate skill names by precedence, so an existing user- or project-level skill with the same name wins; package skills do not override it.
 
 ## Dependencies / profile / runtime configuration
 
