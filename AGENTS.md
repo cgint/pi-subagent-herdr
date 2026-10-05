@@ -14,6 +14,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - Git integration handoffs must preserve in-progress merges: inspect and resolve in place; never abort/reset/recreate without lead authorization. Readonly is an assignment boundary, not proof of filesystem isolation: local Git metadata writes were observed despite that mode. Forbid config writes explicitly and independently check side effects; compare hashes using the same algorithm.
 - Buddy pane IDs are session-local: obtain or verify the current user-designated pane on re-entry rather than persisting a reusable handle.
 - Cross-repository authority clarification: respect the other repository's agent as its Firstmate. Coordinate changes, verification and local memory through messages; do not execute commands against that repository. Do not close or rename its Firstmate pane.
+- **Communication:** Reply briefly and directly with only decision-relevant facts, constraints, risks, and next steps. Persist fuller durable detail in its canonical repository artifact rather than chat; create a status file only when writes are allowed and no canonical artifact fits.
 
 ## Durable Pairing Memory & Standing Stewardship Contract
 - **Durable Pairing Memory:** Repository-owned, filesystem-persisted knowledge that enables future sessions to continue without losing intent, constraints, or decisions.
