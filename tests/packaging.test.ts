@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { loadSkillsFromDir } from "@earendil-works/pi-coding-agent";
 
 // tsconfig.build.json compiles tests/packaging.test.ts into .test-build/tests/packaging.test.js
 // (rootDir = repo root, outDir = .test-build). From the compiled location, the root
@@ -29,10 +30,10 @@ const HOST_PACKAGES = [
 
 const BUNDLED_SKILLS = [
   "firstmate",
+  "pairing",
+  "handoff",
+  "subagent-supervision",
   "bootstrap-pairing-memory",
-  "grounded-pairing-discipline",
-  "sub-agent-handoff",
-  "sub-agent-herdr-supervisor",
 ];
 
 test("packaging: bundles declared skills in the package artifact", () => {
@@ -42,6 +43,16 @@ test("packaging: bundles declared skills in the package artifact", () => {
     BUNDLED_SKILLS.map((name) => `./skills/${name}`),
   );
 
+  const skillsDirectory = new URL("../../skills/", import.meta.url);
+  assert.deepEqual(
+    readdirSync(skillsDirectory, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort(),
+    [...BUNDLED_SKILLS].sort(),
+    "skills directory must not retain undeclared legacy names",
+  );
+
   for (const name of BUNDLED_SKILLS) {
     const skill = new URL(`../../skills/${name}/SKILL.md`, import.meta.url);
     assert.ok(existsSync(skill), `expected bundled skill ${name}`);
@@ -49,6 +60,16 @@ test("packaging: bundles declared skills in the package artifact", () => {
     assert.match(contents, new RegExp(`^---\\nname: ${name}\\n`, "m"));
     assert.match(contents, /^description: .+/m);
   }
+
+  const loaded = loadSkillsFromDir({
+    dir: skillsDirectory.pathname,
+    source: "package",
+  });
+  assert.deepEqual(
+    loaded.skills.map((skill) => skill.name).sort(),
+    [...BUNDLED_SKILLS].sort(),
+  );
+  assert.deepEqual(loaded.diagnostics, []);
 });
 
 test("packaging: host packages are declared as wildcard peer dependencies", () => {

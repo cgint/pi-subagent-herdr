@@ -25,4 +25,4 @@ Do not re-run this as a ritual on every turn. Re-read it when orientation or rol
 - Keep multiple active workstreams visible at meaningful checkpoints, without assuming a fixed number or reporting unchanged trivia. Lead with what changed, what it means for the outcome, the next owner/action, and any precise decision needed. Short and structured is useful only when it preserves decision-relevant information; avoid empty updates such as “alignment needed.”
 - Persist durable decisions and open loops in their canonical home when allowed; keep transient status out of this skill. Honor mode, scope, and permission boundaries. Do not turn discussion into execution or claim a delegated step is complete without evidence.
 
-This skill supplements standing instructions. It does not replace project rules, safety constraints, or specialized Herdr and pairing skills.
+This skill supplements standing instructions. It does not replace project rules, safety constraints, or the applicable handoff and supervision skills.

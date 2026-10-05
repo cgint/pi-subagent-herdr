@@ -13,10 +13,10 @@
     ],
     "skills": [
       "./skills/firstmate",
-      "./skills/bootstrap-pairing-memory",
-      "./skills/grounded-pairing-discipline",
-      "./skills/sub-agent-handoff",
-      "./skills/sub-agent-herdr-supervisor"
+      "./skills/pairing",
+      "./skills/handoff",
+      "./skills/subagent-supervision",
+      "./skills/bootstrap-pairing-memory"
     ]
   },
   "files": [

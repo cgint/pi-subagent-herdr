@@ -112,12 +112,20 @@ The `pi` key in `package.json` declares the extension entry and its bundled skil
 {
   "pi": {
     "extensions": ["./src/index.ts"],
-    "skills": ["./skills/firstmate", "./skills/bootstrap-pairing-memory", "./skills/grounded-pairing-discipline", "./skills/sub-agent-handoff", "./skills/sub-agent-herdr-supervisor"]
+    "skills": ["./skills/firstmate", "./skills/pairing", "./skills/handoff", "./skills/subagent-supervision", "./skills/bootstrap-pairing-memory"]
   }
 }
 ```
 
-The package serves these five skills with their canonical names. Pi resolves duplicate skill names by precedence, so an existing user- or project-level skill with the same name wins; package skills do not override it.
+The package serves five behavior-first skills:
+
+- `firstmate`: sustained-work strategy, integration, and acceptance;
+- `pairing`: grounded collaboration and durable repository memory;
+- `handoff`: bounded assignments and compact evidence reports;
+- `subagent-supervision`: native `subagent_*` worker lifecycle operations;
+- `bootstrap-pairing-memory`: explicit-only initialization of collaboration memory.
+
+Pi resolves duplicate skill names by precedence, so an existing user- or project-level skill with the same name wins; package skills are coherent defaults, not overrides. The external runtime lookup still uses its installed `sub-agent-herdr-supervisor` directory; that internal dependency is distinct from the public `subagent-supervision` skill.
 
 ## Dependencies / profile / runtime configuration
 

@@ -1,6 +1,7 @@
 ---
 name: bootstrap-pairing-memory
-description: User-invoked workflow for establishing durable pairing memory and assigning its ongoing stewardship to agents.
+description: Explicitly initialize repository-owned collaboration memory and its ongoing stewardship contract.
+disable-model-invocation: true
 ---
 
 # Bootstrap Pairing Memory
