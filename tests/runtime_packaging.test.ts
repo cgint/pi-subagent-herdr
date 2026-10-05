@@ -31,7 +31,8 @@ test("runtime: extracted package keeps Herdr runtime and integrates optional sys
     const direct = reporter("default");
     let r = run("editable"); assert.equal(r.status, 0, r.stderr);
     let args = readFileSync(capture, "utf8");
-    assert.ok(args.includes(path.join(scripts, "../../../src/index.ts")));
+    assert.ok(args.includes(path.join(scripts, "../../../index.ts")), "self-extension must load from the package root index.ts so Pi labels it by package name");
+    assert.ok(existsSync(path.join(scripts, "../../../index.ts")), "package root index.ts entry must ship");
     assert.ok(!args.includes("https://github.com/cgint/pi-subagent-herdr"));
     assert.ok(!args.includes("--dm-read=1"));
     const minimal = reporter("minimal");

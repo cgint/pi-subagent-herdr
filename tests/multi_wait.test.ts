@@ -18,8 +18,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SubagentService } from "../src/core.js";
-import type { Transport, TransportResult, TransportOptions } from "../src/transport.js";
+import { SubagentService } from "../core.js";
+import type { Transport, TransportResult, TransportOptions } from "../transport.js";
 
 // ---------------------------------------------------------------------------
 // Fake herdr world (same semantics as tests/core.test.ts)

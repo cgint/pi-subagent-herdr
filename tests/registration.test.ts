@@ -1,4 +1,4 @@
-// Node:test suite for src/index.ts (Pi registration layer, 0.2.0 contract).
+// Node:test suite for index.ts (Pi registration layer, 0.2.0 contract).
 //
 // Covers: registration count/names/schemas (flat 0.2.0 parameter surface),
 // legacy-field absence from schemas, honest descriptions, annotations,
@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import registerSubagentHerdr, { resolveRuntimeDir, type RegistrationDeps } from "../src/index.js";
-import { DEFAULTS } from "../src/core.js";
+import registerSubagentHerdr, { resolveRuntimeDir, type RegistrationDeps } from "../index.js";
+import { DEFAULTS } from "../core.js";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
@@ -718,9 +718,8 @@ test("defaults: match the 0.2.0 contract", () => {
 });
 
 test("packaging: no .sub_agent_conf in the extension source", () => {
-  const files = fs.readdirSync(path.join(process.cwd(), "src"));
-  for (const f of files) {
-    const content = fs.readFileSync(path.join(process.cwd(), "src", f), "utf8");
+  for (const f of ["index.ts", "core.ts", "transport.ts"]) {
+    const content = fs.readFileSync(path.join(process.cwd(), f), "utf8");
     assert.ok(!content.includes(".sub_agent_conf"), `${f} must not reference .sub_agent_conf`);
   }
 });

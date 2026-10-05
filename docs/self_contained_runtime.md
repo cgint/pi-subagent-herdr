@@ -9,7 +9,7 @@ The extension defaults to its installed `skills/subagent-herdr-supervision/scrip
 - **Profile management is outside this extension.** Bundled `pi-profile.sh` is removed. Global `pi-profile` and shared runtime originals are never modified/deleted by this change.
 - When system `pi-profile` is on PATH, workers invoke it with **minimal** by default. `PI_WORKER_PROFILE` overrides that selection, including `default`. Invalid/option-like profile names fail before invoking the command.
 - Without system `pi-profile`, workers launch Pi directly. An explicit non-default profile fails clearly rather than being silently discarded. Selected reporter/profile failures do not fall back to another profile.
-- Worker controllers load this installed package's `src/index.ts`, not a GitHub cache. No runtime chmod or legacy runtime-directory scan is used.
+- Worker controllers load this installed package's root `index.ts` (with `core.ts`/`transport.ts` beside it), not a GitHub cache. The entry sits at the package root so Pi labels it by package name rather than `src`. No runtime chmod or legacy runtime-directory scan is used.
 
 ## External prerequisites
 

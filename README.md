@@ -94,7 +94,7 @@ checkout, use `git pull --ff-only`, `npm ci`, then restart Pi.
 
 ```bash
 npm ci
-pi --extension ./src/index.ts
+pi --extension ./index.ts
 ```
 
 Pi loads TypeScript extensions directly via `jiti`; no build step is needed for
@@ -111,7 +111,7 @@ The `pi` key in `package.json` declares the extension entry and its bundled skil
 ```json
 {
   "pi": {
-    "extensions": ["./src/index.ts"],
+    "extensions": ["./index.ts"],
     "skills": ["./skills/subagent-firstmate", "./skills/subagent-pairing", "./skills/subagent-handoff", "./skills/subagent-herdr-supervision", "./skills/subagent-bootstrap-pairing-memory"]
   }
 }

@@ -50,7 +50,7 @@ const STATUS_KEY = "pi-subagent-herdr";
 
 /** Skill directory that owns the worker runtime scripts (installed read-only). */
 
-/** 0.2.0 wait/output constants (mirrored in src/core.ts DEFAULTS). */
+/** 0.2.0 wait/output constants (mirrored in core.ts DEFAULTS). */
 const WAIT_MS = 1_800_000;
 const MAX_WAIT_MS = 3_600_000;
 const MAX_LINES = 500;
@@ -103,7 +103,7 @@ interface SubagentServiceLike {
 export function resolveRuntimeDir(
   flagValue: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
-  bundledDir: string = fileURLToPath(new URL("../skills/subagent-herdr-supervision/scripts/", import.meta.url)),
+  bundledDir: string = fileURLToPath(new URL("./skills/subagent-herdr-supervision/scripts/", import.meta.url)),
 ): string {
   if (typeof flagValue === "string" && flagValue.trim() !== "") return flagValue;
   const fromEnv = env[RUNTIME_ENV];

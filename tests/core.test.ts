@@ -1,4 +1,4 @@
-// Node:test suite for src/core.js (0.2.0 ergonomic contract) + transport.
+// Node:test suite for core.ts (0.2.0 ergonomic contract) + transport.
 // Fake transport implements a small herdr state machine so start, prompt,
 // wait, detection, races, cancellation, ownership (informational), source
 // fallbacks, migration, timeout and the two-tier freshness rules are all
@@ -11,9 +11,9 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SubagentService, shellQuote, DEFAULTS, rejectLegacyFields } from "../src/core.js";
-import { HerdrTransport, TransportError } from "../src/transport.js";
-import type { Transport, TransportResult, TransportOptions } from "../src/transport.js";
+import { SubagentService, shellQuote, DEFAULTS, rejectLegacyFields } from "../core.js";
+import { HerdrTransport, TransportError } from "../transport.js";
+import type { Transport, TransportResult, TransportOptions } from "../transport.js";
 
 // ---------------------------------------------------------------------------
 // Fake herdr world

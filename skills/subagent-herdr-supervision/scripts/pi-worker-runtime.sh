@@ -94,7 +94,7 @@ pi_worker_runtime_main() {
 
   local focus_guard="https://github.com/cgint/pi-focus-guard"
   local tool_intent="https://github.com/cgint/pi-tool-intent"
-  local subagent_herdr="$(cd "$PI_WORKER_RUNTIME_DIR/../../.." && pwd)/src/index.ts"
+  local subagent_herdr="$(cd "$PI_WORKER_RUNTIME_DIR/../../.." && pwd)/index.ts"
   [[ -f "$subagent_herdr" ]] || {
     printf 'worker launcher: bundled extension missing: %s\n' "$subagent_herdr" >&2
     exit 1

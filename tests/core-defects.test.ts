@@ -11,8 +11,8 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { SubagentService } from "../src/core.js";
-import type { Transport, TransportResult, TransportOptions } from "../src/transport.js";
+import { SubagentService } from "../core.js";
+import type { Transport, TransportResult, TransportOptions } from "../transport.js";
 
 // ---------------------------------------------------------------------------
 // Shared fake infrastructure (copied from core.test.ts)
