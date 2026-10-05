@@ -19,16 +19,17 @@ The repository now contains a substantial implementation of the planned native s
 | Installation and clean-checkout checks | GitHub installation documented, package private, host peers declared; fresh local check fails | Portability gate not satisfied on this checkout |
 | Hardening and independent evidence | Failure regressions, local monitor cancellation/reaping, cleanup originals, explicit security limits | Significant work delivered; neither full live parity nor statistical reliability established |
 
-## Fresh verification and concrete blocker
+## Fresh verification on a second host (2026-10-05)
 
-- `npm run check` initially could not find `tsc` because this fresh checkout had no dependencies.
-- `npm ci --ignore-scripts` succeeded: local dependencies were installed without lifecycle scripts. It reported one high-severity vulnerability; no dependency fixes/overrides were attempted.
-- Subsequent `npm run check` failed during typechecking with `TS2688: Cannot find type definition file for 'node'`.
-- `npm ls typescript @types/node --depth=0` confirms TypeScript 5.9.3 and @types/node 22.20.4 are installed locally.
-- Root cause observed in committed `tsconfig.json`: `typeRoots` is hardcoded to `/Users/cgint/.pi/profiles/minimal/agent/node_modules/@types`, rather than portable project-local resolution. The current checkout is under `/Users/christian.gintenreiter/...`.
-- Current host Node is 26.10.0; documented validated host was Node 22.23.3. Fixing the path alone would not establish live equivalence with that host.
+- `npm ci --ignore-scripts` succeeded (local deps installed; one known high-severity vuln in the host SDK shrinkwrap, see `docs/security.md`).
+- **Blocker found then fixed:** committed `tsconfig.json` had `typeRoots` hardcoded to `/Users/cgint/.pi/...` (machine-specific), causing `TS2688: Cannot find type definition file for 'node'` on any other checkout. **Fixed in `76f832f`** by removing `typeRoots`/`types` so `@types/node` resolves from the project's own `node_modules`. `npm run check` now passes (224/224) on a second machine (Node 26.10.0, pi 1.0.0).
+- Test fixture paths in `tests/core.test.ts` referencing `/Users/cgint/...` were replaced with neutral `/home/user/...` paths (data only, no semantic change).
 
-This is a confirmed cross-machine build/typecheck defect, not evidence that the extension's runtime tools all fail. Tests were not reached; the historical 224-test pass was not reproduced. No implementation/configuration repair was performed during this comparison.
+## Cross-machine caveats that remain
+
+- Live/native acceptance evidence in `docs/evidence/` was produced on the original host (Node 22.23.3, pi 0.99.1). It is committed as proof-of-capability, not a claim that it was re-run on every host. Re-run the relevant gates after any host/PI upgrade.
+- The `--dm-read` parser quirk is pinned to pi 0.99.1/1.0.0; re-verify if Pi's CLI parser changes.
+- The installed live skill (`~/.pi/profiles/minimal/agent/skills/sub-agent-herdr-supervisor/scripts/pi-worker-runtime.sh`) still appends bare `--dm-read` in readonly mode (line 229). That is a separate, out-of-repo asset; the fix (`--dm-read=1`) is parseArgs-verified but not launch-tested. See open item 4 below.
 
 ## Remaining limits and priorities
 
