@@ -31,12 +31,22 @@ This is an operational skill. Use the native `subagent_*` tools as the normal co
 
 Native tools run in a Herdr pane and identify targets by pane ID. There is no native public `agent get`: use the inspection tools above.
 
+## Keep coordination moving
+
+Every delegation needs an explicit follow-through path. Default to lead-owned wait/read until the requested result or blocker is received. Alternatively, tell the worker to ping an exact recipient on completion/blocker, but only through a mechanism known to notify and resume that recipient. A terminal report, delivery receipt, or the mere presence of messaging tools does not prove wake-up. If that return path is unavailable or unverified (including readonly workers without messaging tools), the lead must wait/read instead.
+
+`wait=false` is a submission receipt, not a handoff of follow-through responsibility. Continue useful independent work, then collect the answer proactively at the next coordination checkpoint, before ending the turn without a working wake-up path. Do not promise polling after your turn ends unless an actual scheduler provides it. Use bounded waits; after timeout inspect current state and choose the next wait/recovery action, never silently abandon the worker or blindly resend. Do not wait for the user to remind you.
+
+State who owns the next action. Completion pings must include the result/report location; blocker pings must name the blocker and required decision. The lead reads and acts on them, including telling a blocked worker whether to resume, stop, or remain deliberately parked. Merely acknowledging a ping must not leave both sides waiting.
+
 ## Evidence and recovery
 
 - A delivery receipt is not task completion. A timeout, cancellation, or uncertain delivery never authorizes automatic resend.
 - A terminal lifecycle observation is not acceptance. Inspect the requested report, relevant output, changed paths/diff when applicable, and proportionate checks.
 - `blocked` requires reading the actual question or evidence before clarifying, redirecting, or escalating.
-- Keep a pane only when its context has a concrete near-term use. Otherwise close it after independent inspection. Capture required terminal evidence before close; retention after close is not assumed.
+- Clean up temporary owned worker panes at the same checkpoint as result inspection: capture required evidence, independently verify the assignment and related jobs are finished, then close if there is no concrete next assignment. Cleanup is not permission to cancel unfinished work. Do not accumulate finished panes until the overall goal ends. Independently verify absence and update the child registry; failed closure remains an open cleanup obligation. Retention after close is not assumed.
+- Before closing an owned controller, reconcile its children: inspect/capture results and close finished temporary children, or confirm an authorized active supervisor has accepted responsibility for each retained child and can access its registry/evidence. Do not orphan live children by closing their only supervisor.
+- Keep a pane only for a concrete near-term assignment or an explicitly persistent role, with a clear owner/reason; reassess temporary retention at the next coordination checkpoint. “Might be useful later” is not a retention reason. Never close a user-designated peer or another repository's Firstmate as cleanup; persistent does not mean abandoned.
 - Ownership metadata is informational. Use authority and the handoff, not a tool flag, to decide whether control is appropriate.
 
 ## Completion

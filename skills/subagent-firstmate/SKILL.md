@@ -25,4 +25,14 @@ Do not re-run this as a ritual on every turn. Re-read it when orientation or rol
 - Keep multiple active workstreams visible at meaningful checkpoints, without assuming a fixed number or reporting unchanged trivia. Lead with what changed, what it means for the outcome, the next owner/action, and any precise decision needed. Short and structured is useful only when it preserves decision-relevant information; avoid empty updates such as “alignment needed.”
 - Persist durable decisions and open loops in their canonical home when allowed; keep transient status out of this skill. Honor mode, scope, and permission boundaries. Do not turn discussion into execution or claim a delegated step is complete without evidence.
 
+## Keep coordination alive — every Firstmate owns this
+
+A worker or controller can wait correctly while its Firstmate leaves the whole effort stalled. This is a general lead responsibility, not a defect in the controller's waiting behavior.
+
+- **Collect and act:** after sending a request, wait/read for the answer or explicitly arrange a completion/blocker ping through a known working recipient wake-up path. `wait=false` is only a submission receipt. Messaging tools or a terminal report alone do not establish notification. Without a working ping-back path, collect the reply before ending your turn; do not promise imaginary background polling or wait for the user to remind you.
+- **Keep the next action owned:** inspect the reply and advance the work. Resolve blockers or explicitly tell the worker to resume, stop, or remain deliberately parked. Name who acts next so participants do not all wait for each other. Delegating to a controller does not transfer the Firstmate's duty to collect the controller's report and drive the overall outcome.
+- **Retire temporary panes early:** at the result-inspection checkpoint, capture evidence and close owned panes whose work is finished and which have no concrete next assignment; verify absence. Do not accumulate them until the goal ends. Reconcile a controller's children before closing it. Retention needs an explicit persistent role or concrete next assignment, not “might be useful later.” User-designated peers and other repositories' Firstmates are not cleanup targets.
+
+Use the handoff skill to specify the return path and the supervision skill for operational safeguards. These rules require follow-through, not new orchestration or changes to controllers that already wait correctly.
+
 This skill supplements standing instructions. It does not replace project rules, safety constraints, or the applicable handoff and supervision skills.

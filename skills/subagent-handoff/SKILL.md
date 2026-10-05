@@ -30,7 +30,8 @@ Provide the following information, concisely and explicitly:
 - **Checks:** proportionate commands or observations the worker must perform.
 - **Stop rule:** when uncertain, blocked, or outside scope, stop and report rather than improvise.
 - **Report channel:** terminal report for readonly work; approved artifact/diff only when explicitly authorized for editable work.
-- **Return and escalation:** who receives the report; escalate only a decision, blocker, contradiction, or scope change.
+- **Return and escalation:** exact recipient and next-action owner; default to lead-owned wait/read, or specify a completion/blocker ping with a known working recipient wake-up path. An unverified notification path requires lead-owned waiting. Pings include the result/report location or blocker and required decision. Escalate only a decision, blocker, contradiction, or scope change.
+- **Pane disposition:** temporary by default; close promptly after evidence capture and independent inspection when the assignment/related jobs are finished and no concrete next assignment remains. Name any persistent role or near-term reuse and its owner; controllers must reconcile children before closure. Use the linked supervision skill for cleanup and wake-up safeguards.
 
 A compact template:
 
@@ -50,7 +51,8 @@ Starting points: <files, symbols, commands, evidence>
 Required checks: <commands or observations>
 Stop rule: <when to stop and report>
 Report channel: <terminal-only | authorized artifact path>
-Return/escalation: <recipient; conditions>
+Return/escalation: <exact recipient; lead wait/read | completion/blocker ping via known working wake-up path; next-action owner>
+Pane disposition: <temporary: close promptly after inspection | persistent/near-term reuse: owner and reason>
 ```
 
 ## Work report
