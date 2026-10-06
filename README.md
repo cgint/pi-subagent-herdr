@@ -25,7 +25,7 @@ with precise migration hints (no silent fallbacks). Key changes:
 | `raw` (read) | `source: "raw"` | Explicit source selection |
 | `continuation` (wait) | *(removed)* | Internal pending context only; no public cursor |
 | `allowExternal` / `externalConfirmed` | *(removed)* | Ownership is informational only; no control gates |
-| `start.timeoutMs` (60 min default) | `start.timeoutMs` (30 min default) | Bounded wait phase; detection is a separate 15 s budget |
+| `start.timeoutMs` (60 min default) | `start.timeoutMs` (30 min default) | Bounded wait phase; detection is a separate 30 s budget |
 | `prompt.timeoutMs` (60 min default) | `prompt.timeoutMs` (30 min default) | Bounded wait phase |
 | `wait.timeoutMs` (30 min default) | `wait.timeoutMs` (30 min default) | Bounded wait phase |
 
@@ -174,7 +174,7 @@ No additional config file is required.
   history while a worker is working. For its typed `agent_not_idle` condition,
   reads use the visible viewport; idle reads retain recent unwrapped history.
   Unrelated read failures are not hidden in bounded prompt results.
-- **Timeouts are bounded.** Defaults: detection 15 s, start/prompt/wait
+- **Timeouts are bounded.** Defaults: detection 30 s, start/prompt/wait
   timeoutMs 30 min. Hard ceiling 60 min. No infinite polling.
 - **Cancellation is safe.** Aborting a tool call reaps only the local Herdr CLI
   process; it never interrupts or closes the worker pane.

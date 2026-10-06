@@ -154,7 +154,7 @@ export interface SubagentServiceOptions {
 }
 
 export const DEFAULTS = {
-  detectionMs: 15_000,
+  detectionMs: 30_000,
   waitMs: 1_800_000,
   maxWaitMs: 3_600_000,
   consoleLines: 100,

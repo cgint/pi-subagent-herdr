@@ -708,7 +708,7 @@ test("resolveRuntimeDir: no overrides selects bundled directory, not legacy prof
 // ---------------------------------------------------------------------------
 
 test("defaults: match the 0.2.0 contract", () => {
-  assert.equal(DEFAULTS.detectionMs, 15_000);
+  assert.equal(DEFAULTS.detectionMs, 30_000);
   assert.equal(DEFAULTS.waitMs, 30 * 60_000);
   assert.equal(DEFAULTS.maxWaitMs, 60 * 60_000);
   assert.equal(DEFAULTS.consoleLines, 100);

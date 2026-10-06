@@ -413,7 +413,7 @@ const LIST_PARAMS = Type.Object({
 const DESC = {
   start: [
     "Start a new herdr sub-agent worker pane in the current workspace. An explicit different workspace is rejected before pane creation.",
-    "Splits a pane, launches the worker runtime (readonly by default; use mode=editable for controllers), waits for managed-Pi agent detection (separate 15 s budget), renames the agent, then delivers the task via `agent prompt` (never at launch).",
+    "Splits a pane, launches the worker runtime (readonly by default; use mode=editable for controllers), waits for managed-Pi agent detection (separate 30 s budget), renames the agent, then delivers the task via `agent prompt` (never at launch).",
     "wait=false (default) returns after readiness + submission (ready+submitted; fan-out friendly). wait=true combines launch -> submit -> wait -> console; the timeoutMs budget bounds the wait phase only (default 1,800,000 ms, max 3,600,000 ms), not total call time or the worker's life.",
     "A terminal state is not task completion — verify task-specific output. Cancellation never interrupts or closes the worker. The result pane field is the caller address for all other tools.",
   ].join(" "),

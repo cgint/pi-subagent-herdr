@@ -2041,7 +2041,7 @@ test("prompt: successful CLI wait with nonterminal payload is not a terminal obs
 // ---------------------------------------------------------------------------
 
 test("defaults: match the 0.2.0 contract", () => {
-  assert.equal(DEFAULTS.detectionMs, 15_000);
+  assert.equal(DEFAULTS.detectionMs, 30_000);
   assert.equal(DEFAULTS.waitMs, 1_800_000);
   assert.equal(DEFAULTS.maxWaitMs, 3_600_000);
   assert.equal(DEFAULTS.consoleLines, 100);
