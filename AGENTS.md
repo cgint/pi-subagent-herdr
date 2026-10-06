@@ -29,6 +29,12 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Memory Checkpoint:** Before concluding meaningful work, identify durable findings, update canonical files, prune stale notes, and report updates clearly.
 - **Memory Boundary:** Repository-owned docs (`AGENTS.md`, `PROJECT_OVERVIEW.md`, `docs/`) hold durable knowledge. `agent/` is strictly for agent-internal ephemeral scratch/work artifacts.
 
+## Search guardrail
+- Never run `find /Users/cgint` or `find /` (whole-tree scans); scope finds to a named subdirectory.
+
+## Explore capture (2026-10-06)
+- Role-based sub-agents idea (model + instructions per role; controller/worker/reviewer/rubberduck/critique; rejected team syntax; env-var vs launcher-flag model-channel fork): `docs/20261006-idea-role-based-subagents.md`.
+
 ## Phase state (2026-10-03)
 - 0.2.0 ergonomic contract implemented (9 tools, pane sole address, two-tier freshness, console spread isolation); unit test suite passes (count is not a contract). Automated acceptance and bounded native evidence/limits: docs/ergonomic_acceptance.md. Busy steering, timeout recovery and final corrections are unit-verified; human testing follows the authorized GitHub push. Unit passage alone is not acceptance; cite timestamped observations, never a permanent count.
 - Current validated host: Pi 1.0.0, Herdr 0.9.3, Node 22.23.3, TypeBox 1.3.27. Initial registration/footer controls were recorded on Pi 0.99.1. Host SDK/pi-ai/TypeBox are wildcard peers; exact local dev pins follow the validated host.
