@@ -17,7 +17,7 @@ This keeps v1 small: one new optional `role` param, a handful of static role pre
 
 ## Implementation notes (v1 shipped, 2026-10-06)
 
-What actually shipped on branch `role-based-subagents` (commit to be cited):
+What actually shipped on branch `role-based-subagents` (commit 84c8fc3):
 
 - **Role text location:** const map `ROLES` + `CROSS_CUTTING_RULES` in `core.ts`. No `roles/` directory, no files shipped with the package. The combined preamble is `CROSS_CUTTING_RULES + "\n\n" + ROLES[role]`, built by `rolePreamble(role)` and passed as a single `--append-system-prompt` value.
 - **Instructions channel:** the extension-level launch command (built in `core.ts`) gains `--append-system-prompt ${shellQuote(preamble)}` placed **pre-`--`**, between `--mode <mode>` and `--`. `pi-worker-runtime.sh` parses it as a pre-`--` trusted flag (missing/duplicate value rejected) and appends it to `pi_args` only when non-empty.
