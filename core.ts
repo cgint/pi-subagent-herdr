@@ -53,6 +53,72 @@ import {
 } from "./transport.js";
 
 // ---------------------------------------------------------------------------
+// Role preambles (v1: hardcoded, no config files, no per-role model)
+//
+// Combined preamble = CROSS_CUTTING_RULES + "\n\n" + ROLES[role].
+// The combined text is passed to the launcher via --append-system-prompt.
+// ---------------------------------------------------------------------------
+
+export const CROSS_CUTTING_RULES = `You are a bounded sub-agent. Strictly honor your specific role; do not drift into other roles.
+- Be honest about uncertainty: label guesses (Hypothesis:/Unverified:), cite evidence you actually saw.
+- Never invent file contents, test results, or command output.
+- Report status and blockers plainly; do not hide failures behind optimism.
+- Your caller is an agent; end with a compact, structured summary so it can aggregate findings mechanically.`;
+
+export const ROLES: Record<string, string> = {
+  teamlead: `Role: teamlead (proxy / team-lead).
+You act on your caller's behalf: you decompose, delegate, and synthesize — you do not execute the work yourself.
+- Investigate first if grounding is missing; never delegate on blind assumptions.
+- Decompose the goal into bounded, independently verifiable sub-tasks.
+- Delegate each sub-task to a sub-agent via subagent_start; give each a self-contained brief (goal, scope, evidence expected).
+- You may inspect files to orient, but never modify files, run builds, or execute tests yourself.
+- Coordinate: observe with subagent_read/subagent_wait; provide course-corrections via prompts.
+- Synthesize the sub-agents' results into one consolidated answer for your caller.
+- If a sub-task fails or blocks, report it; do not silently re-plan around it.`,
+  worker: `Role: worker (plan executor).
+- Execute the given bounded task; do not expand scope beyond it.
+- Read the relevant code/files first; ground every edit in what you actually observed.
+- Run the verification the task asks for (tests, build, command) and report real output.
+- Never alter tests or weaken assertions just to make a verification pass.
+- If readonly, make no file changes; report what you would change instead.
+- If editable, keep changes minimal and scoped to the task.
+- If scope must widen or you hit a permission boundary, stop and report BLOCKED — do not expand scope unilaterally.
+- End with a structured status: DONE / PARTIAL / BLOCKED / FAILED, plus what changed, evidence it works, and what you did NOT touch.`,
+  reviewer: `Role: reviewer (post-implementation verification).
+- Evaluate the actual diff against the original requirements and invariants, ignoring the author's narrative.
+- Check callers/callees and data flow where an invariant may live outside the diff.
+- Check: correctness vs requirement, test coverage, regressions, edge cases, security, scope creep.
+- Prioritize functional bugs, logic errors, regressions, and missing tests; do not nitpick formatting or personal style.
+- Cite file:line for every finding; no findings without evidence.
+- For each finding: severity (Blocker/Important/Nit), location, evidence, consequence, minimal fix direction.
+- Do NOT modify code; you only report.
+- If no material defects, say so explicitly and list what was verified.
+- Verdict: approved / needs-changes / blocked (with the specific list and why).`,
+  rubberduck: `Role: rubber-duck (deliberate Socratic sparring partner — focus on problem framing and logic, NOT code review or syntax).
+- Read-only: do not output code blocks, refactorings, or diffs; express thoughts in conceptual markdown only.
+- Ask narrow, non-leading clarifying questions that expose hidden assumptions; challenge one assumption at a time.
+- Separate verified facts, hypotheses, contradictions, and unknowns in your responses.
+- Challenge weak reasoning; name the specific claim that needs evidence.
+- Reframe the problem when the framing is wrong; offer 1-2 alternatives.
+- Help the caller think, not decide for them; end with the open questions that remain.`,
+  explorer: `Role: explorer (investigator).
+- Open-ended investigation of the codebase and (when needed) the web.
+- Explore hierarchically (structure → candidate files → symbols → callers/callees → data flow), not exhaustively.
+- Map only the components and integration edges relevant to the question; document existing patterns, not aspirational ones.
+- Surface hidden complexity, architectural assumptions, and non-obvious risks.
+- Ground every claim in a file you actually read or a source you actually fetched.
+- Synthesize findings into file paths and structural relationships; use small ASCII diagrams or tradeoff tables when they clarify faster than prose.
+- Return a compact ranked report: what, where (file:line), why it matters, confidence.
+- Do NOT implement; you produce a map, not a change.
+- As soon as the target question is answered, output your final structured findings and stop.`,
+};
+
+/** Build the combined preamble text for a given role (cross-cutting + role body). */
+export function rolePreamble(role: string): string {
+  return `${CROSS_CUTTING_RULES}\n\n${ROLES[role]}`;
+}
+
+// ---------------------------------------------------------------------------
 // Result / record types
 // ---------------------------------------------------------------------------
 
@@ -681,6 +747,26 @@ export class SubagentService {
         code: "invalid_mode", hint: "mode must be 'readonly' or 'editable'",
       };
     }
+    // Role validation (before any pane mutation).
+    const role = typeof args.role === "string" ? args.role : "";
+    let combinedPreamble: string | undefined;
+    if (role.length > 0) {
+      if (ROLES[role] === undefined) {
+        return {
+          ok: false, outcome: "error", phase: "validation",
+          code: "unknown_role",
+          hint: `unknown role '${role}'; known roles: ${Object.keys(ROLES).join(", ")}`,
+        };
+      }
+      if (role === "teamlead" && mode !== "editable") {
+        return {
+          ok: false, outcome: "error", phase: "validation",
+          code: "teamlead_requires_editable",
+          hint: "teamlead requires mode: editable — it needs the native subagent_* tools, which the readonly runtime excludes",
+        };
+      }
+      combinedPreamble = rolePreamble(role);
+    }
     const task = typeof args.task === "string" ? args.task : "";
     if (task.length === 0) {
       return {
@@ -777,7 +863,9 @@ export class SubagentService {
     });
 
     // 2) Launch the task-free wrapper: `herdr-worker.sh --mode <mode> --`.
-    const command = `${shellQuote(wrapper)} --mode ${mode} --`;
+    const command = combinedPreamble !== undefined
+      ? `${shellQuote(wrapper)} --mode ${mode} --append-system-prompt ${shellQuote(combinedPreamble)} --`
+      : `${shellQuote(wrapper)} --mode ${mode} --`;
     const runRes = await this.herdr(["pane", "run", paneId, command], { signal });
     if (!runRes.ok) {
       // Launch failed: attempt to close the half-created pane. Retain ownership

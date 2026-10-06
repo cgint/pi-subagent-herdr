@@ -233,7 +233,7 @@ test("parameter schemas match the 0.2.0 flat contract", async () => {
 
   // start: name/task required; cwd optional; no terminalId, continuation or allowExternal
   assert.deepEqual(props(byName.get("subagent_start")!).sort(), [
-    "cwd", "maxChars", "mode", "name", "returnLines", "task", "timeoutMs", "wait", "workspace",
+    "cwd", "maxChars", "mode", "name", "returnLines", "role", "task", "timeoutMs", "wait", "workspace",
   ]);
   assert.deepEqual(required(byName.get("subagent_start")!), ["name", "task"]);
   assert.equal((byName.get("subagent_start")!.parameters as { properties: Record<string, unknown> }).properties.terminalId, undefined);

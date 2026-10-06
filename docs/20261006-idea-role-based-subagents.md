@@ -1,25 +1,38 @@
 # Idea: Role-Based Sub-Agents (model + instructions per role)
 
-Date: 2026-10-06 · Status: explore-mode capture (no implementation)
+Date: 2026-10-06 · Status: explore-mode capture (no implementation) → **v1 shipped 2026-10-06** (see Implementation notes below)
 
 ## v1 Decision (2026-10-06, user-confirmed)
 
 **Ship a fixed, small set of built-in roles. No extensibility, no per-role model config.**
 
-- Roles are hardcoded in the extension (a const map or `roles/` dir). No `.subagent-roles.json`, no repo override, no user-defined roles.
-- **Instruction channel: `--append-system-prompt`** (user decision 2026-10-06). The worker's `pi` launch appends the role instructions as a system-prompt addendum — `--append-system-prompt "<text-or-the-file-from-installed-skill-if-we-ship-role-instructions-as-file>"` — rather than prepending to the task prompt. This implies a **launcher change**: `pi-worker-runtime.sh` must accept and forward an `--append-system-prompt` argument (it currently rejects unknown pre-`--` flags and is the only place the `pi` command is built). v1 still has **no model selection per role** — all roles run on the repo's existing model (`.sub_agent_conf` / env / fallback). The model-channel fork (env var vs. launcher flag) remains **deferred** until per-role models are wanted.
+- Roles are hardcoded in the extension (a const map or `roles/` dir). No `.subagent-roles.json`, no repo override, no user-defined roles. **Shipped: const map in `core.ts`.**
+- **Instruction channel: `--append-system-prompt`** (user decision 2026-10-06). The worker's `pi` launch appends the role instructions as a system-prompt addendum — `--append-system-prompt "<text-or-the-file-from-installed-skill-if-we-ship-role-instructions-as-file>"` — rather than prepending to the task prompt. This implies a **launcher change**: `pi-worker-runtime.sh` must accept and forward an `--append-system-prompt` argument (it currently rejects unknown pre-`--` flags and is the only place the `pi` command is built). **Shipped: pre-`--` trusted flag, forwarded into `pi_args`.** v1 still has **no model selection per role** — all roles run on the repo's existing model (`.sub_agent_conf` / env / fallback). The model-channel fork (env var vs. launcher flag) remains **deferred** until per-role models are wanted.
 - Roles (5): `teamlead`, `worker`, `reviewer`, `rubberduck`, `explorer`. `critique` held out.
 - **Role instructions draft (v1):** see § Role instruction drafts below. Each is 6-8 short imperative lines, one concern per line, no fluff.
-- `role?: string` on `subagent_start`; omit = current behavior (backward compatible).
-- Recursion / teamlead-permission questions remain open (see below).
+- `role?: string` on `subagent_start`; omit = current behavior (backward compatible). **Shipped: free string in the schema (no enum), validated at launch.**
+- Recursion / teamlead-permission questions remain open (see below). **Teamlead-permission settled in v1: extension-level guard, `mode: editable` required.**
 
 This keeps v1 small: one new optional `role` param, a handful of static role preambles, and a single launcher addition (`--append-system-prompt` forwarding). No config files, no per-role model.
+
+## Implementation notes (v1 shipped, 2026-10-06)
+
+What actually shipped on branch `role-based-subagents` (commit 84c8fc3):
+
+- **Role text location:** const map `ROLES` + `CROSS_CUTTING_RULES` in `core.ts`. No `roles/` directory, no files shipped with the package. The combined preamble is `CROSS_CUTTING_RULES + "\n\n" + ROLES[role]`, built by `rolePreamble(role)` and passed as a single `--append-system-prompt` value.
+- **Instructions channel:** the extension-level launch command (built in `core.ts`) gains `--append-system-prompt ${shellQuote(preamble)}` placed **pre-`--`**, between `--mode <mode>` and `--`. `pi-worker-runtime.sh` parses it as a pre-`--` trusted flag (missing/duplicate value rejected) and appends it to `pi_args` only when non-empty.
+- **Teamlead guard:** extension-level validation in the `subagent_start` handler (`core.ts`), pre-pane-creation, phase `validation`. `role: "teamlead"` with `mode !== "editable"` fails fast with error code `teamlead_requires_editable`. Unknown roles fail with error code `unknown_role` (same phase). `role` is a free string in the tool schema (no enum) — validation happens at launch, not at schema check.
+- **Backward compatibility:** `role` omitted = byte-identical launch command to pre-role behavior (`<wrapper> --mode <mode> --`). Unit coverage: `tests/roles.test.ts` (11 tests); the exhaustive schema property list in `tests/registration.test.ts` was updated to include `role`.
+- **Unit verification:** `npm run check` passes (237/237 at commit time). Manual live acceptance checks (rubberduck refusal, live teamlead guard) are recorded in `docs/ergonomic_acceptance.md` § Role-based sub-agents (manual checks) and have not been run yet.
 
 ## Role instruction drafts (v1)
 
 These are the texts to be passed via `--append-system-prompt`. Keep each line
 short and imperative. They are *drafts* — final wording is settled at
 implementation after the buddy + research pass confirms the cross-cutting rules.
+
+> Shipped wording (2026-10-06): the texts below are the exact strings shipped in
+> the `ROLES` / `CROSS_CUTTING_RULES` const map in `core.ts`, unchanged.
 
 ### Cross-cutting rules (prepend to every role)
 
@@ -54,6 +67,9 @@ You act on your caller's behalf: you decompose, delegate, and synthesize — you
 > `role: "teamlead"` when `mode` is not `editable` — the teamlead needs the
 > native `subagent_*` tools, which the readonly worker runtime excludes. Fail
 > fast with a clear error at start time.
+> **Shipped (2026-10-06):** implemented as pre-pane-creation validation in `core.ts`,
+> error code `teamlead_requires_editable`. The role never auto-elevates tools;
+> only `mode: editable` unlocks the native `subagent_*` tools.
 
 ### worker
 
@@ -133,6 +149,11 @@ belongs in the acceptance doc, not the role text.
 - **Teamlead guard test:** call `subagent_start({ role: "teamlead", mode: "readonly" })`;
 verify it fails fast with a clear error (teamlead requires editable).
 
+> **Shipped (2026-10-06):** both checks are recorded as MANUAL checks in
+> `docs/ergonomic_acceptance.md` (§ Role-based sub-agents — manual checks).
+> The teamlead guard is additionally covered by a unit test in
+> `tests/roles.test.ts`.
+
 ## Goal
 
 Give the teamlead (proxy / Firstmate) explicit control over the instructions
@@ -151,8 +172,8 @@ the pre-implementation challenger duty proves distinct in practice.
 
 ### Injection mechanism (revised 2026-10-06)
 
-- `subagent_start` gains an optional `role?: string` param (enum of known roles).
-- **Instructions channel:** the role's instructions are passed to the worker's `pi` launch via `--append-system-prompt "<text-or-file>"`. The extension resolves the role to its instruction text (or a file path for installed-skill roles, e.g. `explorer`), and the launcher forwards `--append-system-prompt` into the `pi` command. This replaces the earlier "prepend to task prompt" approach: the role text now lives in the system prompt, not the first user message. **Requires a `pi-worker-runtime.sh` change** to accept/forward the flag (see Open questions).
+- `subagent_start` gains an optional `role?: string` param (free string; validation at launch, not an enum).
+- **Instructions channel (shipped 2026-10-06):** the combined preamble (`CROSS_CUTTING_RULES` + role body) is passed to the worker's `pi` launch via `--append-system-prompt "<text>"` — a pre-`--` trusted flag on the wrapper launch command, forwarded by `pi-worker-runtime.sh` into `pi_args`. The role text lives in the system prompt, not the first user message.
 - **Model channel (deferred for v1):** not used. Per-role model selection is out of scope; all roles use the repo's existing model. The env-var vs. launcher-flag fork is parked.
 
 ### Role definition storage (v1: none)
@@ -220,11 +241,11 @@ cannot find a teamlead's children via plain `subagent_list`.
 
 ## Open questions
 
-- [ ] **Launcher change for `--append-system-prompt`:** `pi-worker-runtime.sh` must accept and forward the flag. Where it sits in the arg parse (pre-`--` trusted flag vs. post-`--` passthrough) and whether to add it to the blocked-override list are open.
-- [ ] Where role instruction text lives: inline const in the extension vs. `roles/` files shipped with the package.
-- [ ] Recursion depth: teamlead spawning workers who spawn workers — need a cap?
-- [ ] Teamlead permission: confirm native delegation tools (subagent_*) require mode=editable; the role must NOT auto-elevate tools.
-- [ ] Agent-neutrality trade-off: `--append-system-prompt` is Pi-specific; non-Pi workers (e.g. Claude) in a Herdr pane won't receive the role this way. Acceptable for v1 (Pi is the managed worker)?
+- [x] **Launcher change for `--append-system-prompt`:** resolved 2026-10-06 — pre-`--` trusted flag on the wrapper command (not in the blocked-override list; the blocked list still covers `--model`, `--tools`, `--extension`, etc.). `pi-worker-runtime.sh` parses it and forwards it into `pi_args`.
+- [x] Where role instruction text lives: resolved 2026-10-06 — const map `ROLES` + `CROSS_CUTTING_RULES` in `core.ts`, not `roles/` files.
+- [ ] Recursion depth: teamlead spawning workers who spawn workers — need a cap? **(still open: v1 has no cap; default `start` mode is readonly, so recursive controllers must be explicitly `editable`.)**
+- [x] Teamlead permission: resolved 2026-10-06 — confirmed; the `subagent_start` handler rejects `role: "teamlead"` with `mode` other than `editable` (pre-pane-creation, `teamlead_requires_editable`). The role never auto-elevates tools.
+- [ ] Agent-neutrality trade-off: `--append-system-prompt` is Pi-specific; non-Pi workers (e.g. Claude) in a Herdr pane won't receive the role this way. **Acceptable for v1 (Pi is the managed worker); stays open for future agent-neutral roles.**
 
 ## Ground truth (verified 2026-10-06)
 

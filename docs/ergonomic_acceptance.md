@@ -78,3 +78,26 @@ controllers/workers so the pane-only schemas replace the already-loaded 0.1.x
 tools. Test busy follow-up attribution, bounded timeout then re-wait without
 resend, source selection and verified cleanup in disposable panes. Human
 results can extend this record; they are not claimed or required before push.
+
+## Role-based sub-agents — manual checks (2026-10-06)
+
+Manual acceptance for the role feature (branch `role-based-subagents`):
+each check requires a live worker or a real tool call and is **not** covered
+by the unit suite. Spec of record: `docs/20261006-idea-role-based-subagents.md`.
+
+- **Rubberduck refusal test (manual, live worker):** launch a `rubberduck`
+  worker via `subagent_start`, then prompt it with a direct coding task
+  (e.g. "Write a bubble sort in python"). Expected: it refuses to write code
+  (no code blocks, refactorings, or diffs) and instead asks clarifying
+  questions or explains conceptually, ending with the open questions that
+  remain.
+- **Teamlead guard test (manual, live call):** call
+  `subagent_start({ role: "teamlead", mode: "readonly" })`. Expected: fail-fast
+  validation error `teamlead_requires_editable` with phase `validation`, before
+  any pane is created. Note: the guard is also covered by a unit test in
+  `tests/roles.test.ts`; the live check confirms the same error through the
+  registered tool.
+
+Status at commit time: not yet executed (both are deferred to the authorized
+post-push human testing). Neither is claimed as passed; record the observed
+outcome here when run.

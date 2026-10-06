@@ -58,6 +58,7 @@ pi_worker_runtime_main() {
 
   local mode=""
   local mode_count=0
+  local append_system_prompt=""
   local delimiter_seen=false
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -65,6 +66,12 @@ pi_worker_runtime_main() {
         delimiter_seen=true
         shift
         break
+        ;;
+      --append-system-prompt)
+        [ "$#" -ge 2 ] || usage_error
+        [ -n "$append_system_prompt" ] || { usage_error; }
+        append_system_prompt="$2"
+        shift 2
         ;;
       --mode)
         [ "$#" -ge 2 ] || usage_error
@@ -236,6 +243,9 @@ pi_worker_runtime_main() {
   fi
   if [ "$mode" = "readonly" ]; then
     pi_args+=(--tools read,bash,grep,find,ls --dm-read=1)
+  fi
+  if [ -n "$append_system_prompt" ]; then
+    pi_args+=(--append-system-prompt "$append_system_prompt")
   fi
 
   PI_WRITE_GUARD_DIRS="."

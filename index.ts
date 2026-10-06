@@ -328,6 +328,12 @@ const START_PARAMS = Type.Object({
       description: "Worker write mode (default readonly).",
     }),
   ),
+  role: Type.Optional(
+    Type.String({
+      description:
+        "Role name (teamlead/worker/reviewer/rubberduck/explorer); the role's instructions are appended to the worker's system prompt. Omit for current behavior (no role). Unknown roles fail at launch.",
+    }),
+  ),
   workspace: Type.Optional(
     Type.String({
       description:
