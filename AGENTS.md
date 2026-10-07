@@ -28,6 +28,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Immediate Triggers:** User statements indicating information matters for future work ("remember this", "take note") override agent discretion on whether to persist (while respecting scope and brevity).
 - **Memory Checkpoint:** Before concluding meaningful work, identify durable findings, update canonical files, prune stale notes, and report updates clearly.
 - **Memory Boundary:** Repository-owned docs (`AGENTS.md`, `PROJECT_OVERVIEW.md`, `docs/`) hold durable knowledge. `agent/` is strictly for agent-internal ephemeral scratch/work artifacts.
+- **Feature Documentation Structure:** All new features follow `docs/feature-impl/<YYYYMMDD>-<feature-short-name>/` with convention files (`<name>-idea.md`, `<name>-requirements.md`, `<name>-plan.md`, plus optional supporting detail files). See `docs/feature-impl/README.md`.
 
 ## Search guardrail
 - Never run `find /Users/cgint` or `find /` (whole-tree scans); scope finds to a named subdirectory.
