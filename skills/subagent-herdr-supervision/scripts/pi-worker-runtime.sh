@@ -69,7 +69,8 @@ pi_worker_runtime_main() {
         ;;
       --append-system-prompt)
         [ "$#" -ge 2 ] || usage_error
-        [ -n "$append_system_prompt" ] || { usage_error; }
+        [ -z "$append_system_prompt" ] || usage_error
+        [ -n "$2" ] || usage_error
         append_system_prompt="$2"
         shift 2
         ;;

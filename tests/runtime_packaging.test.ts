@@ -22,7 +22,7 @@ test("runtime: extracted package keeps Herdr runtime and integrates optional sys
     const profileCapture = path.join(dir, "profile calls");
     const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, PATH: `${bin}:/usr/bin:/bin`, CAPTURE: capture, PROFILE_CAPTURE: profileCapture, PI_WORKER_DEFAULT_MODEL: "test/model:off" };
     delete env.PI_WORKER_PROFILE; delete env.PI_CODING_AGENT_DIR; delete env.PI_SUBAGENT_RUNTIME_DIR;
-    const run = (mode: string, changes: Record<string,string> = {}) => spawnSync("/bin/bash", [path.join(scripts, "herdr-worker.sh"), "--mode", mode, "--"], { cwd, env: { ...env, ...changes }, encoding: "utf8" });
+    const run = (mode: string, changes: Record<string,string> = {}, extraFlags: string[] = []) => spawnSync("/bin/bash", [path.join(scripts, "herdr-worker.sh"), "--mode", mode, ...extraFlags, "--"], { cwd, env: { ...env, ...changes }, encoding: "utf8" });
     const reporter = (profile: string) => {
       const agent = profile === "default" ? path.join(home, ".pi/agent") : path.join(home, `.pi/profiles/${profile}/agent`);
       mkdirSync(path.join(agent, "extensions"), { recursive: true });
@@ -35,6 +35,9 @@ test("runtime: extracted package keeps Herdr runtime and integrates optional sys
     assert.ok(existsSync(path.join(scripts, "../../../index.ts")), "package root index.ts entry must ship");
     assert.ok(!args.includes("https://github.com/cgint/pi-subagent-herdr"));
     assert.ok(!args.includes("--dm-read=1"));
+    r = run("editable", {}, ["--append-system-prompt", "You are a subagent."]); assert.equal(r.status, 0, r.stderr);
+    args = readFileSync(capture, "utf8"); assert.match(args, /--append-system-prompt\nYou are a subagent\./);
+    const rDup = run("editable", {}, ["--append-system-prompt", "a", "--append-system-prompt", "b"]); assert.equal(rDup.status, 2);
     const minimal = reporter("minimal");
     r = run("readonly"); assert.equal(r.status, 0, r.stderr);
     args = readFileSync(capture, "utf8"); assert.ok(args.startsWith("\n.\n"), "no system wrapper means direct Pi, even with profiles on disk");
