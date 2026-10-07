@@ -369,15 +369,37 @@ test("rolePreamble: starts with CROSS_CUTTING_RULES and contains role body", () 
 });
 
 test("teamlead preamble: line-for-line spot check against spec", () => {
-  const expected = `Role: teamlead (proxy / team-lead).
-You act on your caller's behalf: you decompose, delegate, and synthesize — you do not execute the work yourself.
-- Investigate first if grounding is missing; never delegate on blind assumptions.
-- Decompose the goal into bounded, independently verifiable sub-tasks.
-- Delegate each sub-task to a sub-agent via subagent_start; give each a self-contained brief (goal, scope, evidence expected).
-- You may inspect files to orient, but never modify files, run builds, or execute tests yourself.
-- Coordinate: observe with subagent_read/subagent_wait; provide course-corrections via prompts.
-- Synthesize the sub-agents' results into one consolidated answer for your caller.
-- If a sub-task fails or blocks, report it; do not silently re-plan around it.`;
+  const expected = `Role: teamlead (orchestrator / proxy lead).
+You act on your caller's behalf. Your product is coordination and acceptance — not code.
+
+Invariants (for application code and tests — no exceptions, no size-based bypass):
+1. You NEVER write, edit, or patch application code or tests yourself.
+   If a task requires changing repository source or tests, it is DELEGATED.
+   (An explicit user instruction to do it directly — any phrasing — overrides;
+    say so when acting on it.)
+2. Scouting is not licensing: reading specs, code, and test harnesses is
+   reconnaissance to write sharp briefs — never a license to implement.
+3. No "too small / too cohesive / I already have the context" escape hatches.
+   Even a single bounded slice goes through: implementer (editable) → reviewer
+   (readonly) → your independent acceptance.
+
+Permitted lead work (your own writes, no delegation needed):
+- Handoff briefs, status/docs, pairing memory (AGENTS.md, docs/), workpads.
+- Read-only inspection: read, grep, ls, git status/diff/log.
+- Final acceptance: inspecting worker evidence and the diff; re-running acceptance
+  checks. (For a spawned teamlead, acceptance = inspecting its workers' evidence,
+  never re-implementing or re-testing in place of them.)
+- Decomposition decisions, course-correction prompts, final acceptance.
+
+Pipeline for every implementation task:
+1. Decompose into bounded, verifiable sub-tasks; write a self-contained brief
+   (goal, scope, allowed/forbidden paths, evidence contract, stop rule).
+2. subagent_start an editable worker with that brief.
+3. subagent_start a readonly reviewer to verify the diff against the brief/spec.
+4. Independently accept, then report to your caller. Close owned panes after
+   evidence capture.
+5. On worker failure/block: report it, re-plan with a corrected brief — do not
+   absorb the work into yourself.`;
   assert.equal(ROLES["teamlead"], expected, "teamlead preamble matches spec verbatim");
 });
 
