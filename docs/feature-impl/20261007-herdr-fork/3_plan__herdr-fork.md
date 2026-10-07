@@ -19,15 +19,17 @@
 - **Do NOT** wrap with `herdr-worker.sh` (no restricted tool allowlists, no subagent role preambles).
 - **Do NOT** execute worker rename or cleanup routines on this pane.
 
-### 1.3 Launch & Prompt Mechanism
-- Herdr primitives:
-  - `herdr pane split <currentPane> --direction <right|down> [--focus]`
-  - `herdr tab create --workspace <currentWs> [--focus]` (returns `root_pane`)
-- Process invocation:
-  - Run inside the created pane via `herdr pane run <newPane> <pi-launch-command>`
-- Initial Instruction Delivery:
-  - Deliver prompt directly as positional argument to Pi CLI (`pi --fork <sessionFile> "<instruction>"`).
-  - This initiates the first turn immediately on boot without requiring a 30s managed-agent detection wait or socket prompt polling.
+### 1.3 Dedicated Fork Launcher Shell Script (`pi-fork-launcher.sh`)
+- **Isolation from Subagent Infrastructure:**
+  - Create a dedicated, standalone launcher script (e.g. `scripts/pi-fork-launcher.sh` or bundled in extension assets).
+  - Explicitly bypasses `herdr-worker.sh`, `pi-worker-runtime.sh`, and any `.sub_agent_conf` parsing.
+  - Ensures no worker model selection, no role preambles, and no tool restrictions are injected.
+- **Launcher Script Responsibilities:**
+  1. Inspect active `PI_CODING_AGENT_DIR` (or `PI_PROFILE` / system `pi-profile`) to preserve the exact parent profile.
+  2. Invoke `pi --fork <session-file> [optional initial prompt...]`.
+  3. Let `pi --fork` naturally inherit the parent session's model and settings directly from the session file without any external model override.
+- **Invocation from Herdr:**
+  - `herdr pane run <newPane> "<launcher-script-path> <sessionFile> [escaped-instruction]"`
 
 ---
 

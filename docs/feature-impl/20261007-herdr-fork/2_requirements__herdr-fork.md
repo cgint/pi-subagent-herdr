@@ -23,9 +23,14 @@ Enable a user working in a Pi session inside Herdr to quickly branch (fork) thei
 
 ## 3. Behavioral Requirements
 
-### 3.1 Session Continuity (Branching)
+### 3.1 Session Continuity & Configuration Parity (Branching)
 - The newly spawned Pi instance must inherit the complete conversational history and context of the current session up to the moment `/herdr-fork` was called.
 - Changes made in the original session after the fork must not affect the new session, and vice versa (independent branches).
+- **Exact Configuration Parity:**
+  - The forked session must inherit the parent session's configuration and profile without worker overrides.
+  - Calling `pi --fork` naturally continues the session settings.
+  - **Crucial Negative Constraint:** The fork must **never** set or override a model based on sub-agent configuration files (e.g., `.sub_agent_conf`, worker defaults).
+  - The fork launch mechanism must be completely decoupled from subagent worker launchers (via its own dedicated launcher script).
 
 ### 3.2 Parameter Resolution & Natural Input
 - **Single text without keywords:** If the user provides a prompt without specifying a placement keyword (e.g. `/herdr-fork investigate the failing test`), the system must assume the default placement (`right`) and treat the whole sentence as the starter instruction.
@@ -49,3 +54,4 @@ Enable a user working in a Pi session inside Herdr to quickly branch (fork) thei
 4. **Immediate Prompt Forwarding:** Running `/herdr-fork [target] <message>` opens the session and immediately submits `<message>`.
 5. **Prompt Fallback:** Running `/herdr-fork <message>` (without target keyword) defaults to a split on the right with `<message>` automatically submitted.
 6. **Independence:** Actions, prompts, and tool calls executed in the fork do not mutate or interfere with the parent session.
+7. **Configuration & Profile Parity:** The fork runs with the parent's exact active profile, environment, and tools; it does not pick up `.sub_agent_conf` or worker constraints.
