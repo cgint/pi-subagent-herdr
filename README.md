@@ -72,6 +72,25 @@ has per-pane console caps. For positive `maxChars`, aggregate console text is bo
 by `maxChars` for first or `panes.length × maxChars` for all; `maxChars:0` disables
 character clipping. See [contract, evidence and limits](docs/multi_pane_wait.md).
 
+## Stage prompt templates
+
+The package also ships three prompt-template commands (declared in `pi.prompts`):
+
+| Command | Purpose |
+|---|---|
+| `/stage-explore [question]` | Bounded investigation: gather evidence, no edits unless explicitly asked |
+| `/stage-implement [change]` | Make the requested change, keep scope bounded, verify it |
+| `/stage-review [focus]` | Critically inspect relevant work for correctness, risks, gaps, missing verification |
+
+Each command expands into reusable stage guidance for the current LLM, with any
+supplied text forwarded as the brief (the argument is optional; each template
+has a default intent). The templates are guidance only: they do not
+automatically launch, wait for, or close workers, and they do not select a
+model, worker profile, or tool set. Whether and how to delegate remains the
+current LLM's decision, using the existing `subagent_*` tools.
+
+Run `/reload` after installing or updating the package to pick up the commands.
+
 ## Installation
 
 ### Install from GitHub
@@ -106,13 +125,15 @@ local loading.
 pi install ./pi-subagent-herdr
 ```
 
-The `pi` key in `package.json` declares the extension entry and its bundled skills:
+The `pi` key in `package.json` declares the extension entry, its bundled skills,
+and the stage prompt templates:
 
 ```json
 {
   "pi": {
     "extensions": ["./index.ts"],
-    "skills": ["./skills/subagent-firstmate", "./skills/subagent-pairing", "./skills/subagent-handoff", "./skills/subagent-herdr-supervision", "./skills/subagent-bootstrap-pairing-memory"]
+    "skills": ["./skills/subagent-firstmate", "./skills/subagent-pairing", "./skills/subagent-handoff", "./skills/subagent-herdr-supervision", "./skills/subagent-bootstrap-pairing-memory"],
+    "prompts": ["./prompts/stage-explore.md", "./prompts/stage-implement.md", "./prompts/stage-review.md"]
   }
 }
 ```

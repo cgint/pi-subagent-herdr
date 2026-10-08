@@ -17,6 +17,11 @@
       "./skills/subagent-handoff",
       "./skills/subagent-herdr-supervision",
       "./skills/subagent-bootstrap-pairing-memory"
+    ],
+    "prompts": [
+      "./prompts/stage-explore.md",
+      "./prompts/stage-implement.md",
+      "./prompts/stage-review.md"
     ]
   },
   "files": [
@@ -24,6 +29,7 @@
     "core.ts",
     "transport.ts",
     "skills",
+    "prompts",
     "README.md",
     "REQUIREMENTS.md",
     "docs/security.md",
