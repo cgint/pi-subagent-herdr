@@ -37,7 +37,7 @@ Enable a user working in a Pi session inside Herdr to quickly branch (fork) thei
 - **Placement only:** If the user only enters `/herdr-fork right`, `/herdr-fork down`, or `/herdr-fork tab`, open the session with that layout and wait for user input without sending a message.
 - **Empty invocation:** If invoked simply as `/herdr-fork`, split to the `right` and wait for user input.
 - **Placement + Instruction:** If the first word matches one of the placement targets (e.g. `/herdr-fork tab write the acceptance test`), open in the designated location and forward the rest as the prompt.
-- **Quotes protection:** If the user wants to start a prompt that accidentally begins with a direction keyword, enclosing it in quotes (e.g. `/herdr-fork "down in the cellar is a bug"`) must prevent it from being misinterpreted as a split direction.
+- **Quotes protection (self-sufficient rule):** If the input begins with a single or double quote, the input is ALWAYS the starter instruction and never a placement (placement defaults to `right`). A balanced leading protective quote pair — the first character and the LAST character are the same quote, with no other occurrence of that quote in between — is removed, and its inner text is forwarded as the instruction (e.g. `/herdr-fork "down in the cellar is a bug"` forwards the inner text `down in the cellar is a bug`). An unmatched leading quote (no matching final quote of the same kind) leaves the input as literal instruction input — the quote is kept. There is no shell-escape processing: any other quote characters inside are just content.
 
 ### 3.3 Visual & Focus Feedback
 - The active window focus should smoothly transfer to the newly created session so the user can continue typing there immediately.

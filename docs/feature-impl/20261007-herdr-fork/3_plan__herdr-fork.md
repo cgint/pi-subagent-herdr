@@ -1,7 +1,7 @@
 # Implementation Plan & Guidance: `/herdr-fork` Preset Command
 
-> **Status:** Guidance / Draft  
-> **Requirements Source:** [`2_requirements__herdr-fork.md`](./2_requirements__herdr-fork.md)  
+> **Status:** Implemented and live-accepted (2026-10-09); profile-env output observation remains a future regression probe
+> **Requirements Source:** [`2_requirements__herdr-fork.md`](./2_requirements__herdr-fork.md)
 > **Investigation Grounding:** Sub-agent spike report (2026-10-07)
 
 ---
@@ -67,15 +67,20 @@ Given raw input string `args` passed to the command handler:
 
 ## 4. Phased Implementation Roadmap
 
-- [ ] **Phase 1: Command Parser & Unit Tests**
-  - Implement parsing logic (`parseForkArgs(input: string) -> { placement: 'right'|'down'|'tab', instruction?: string }`).
-  - Unit tests covering default, explicit placement, positional prompt, quotes escaping, and whitespace handling.
-- [ ] **Phase 2: Herdr Process Runner Integration**
-  - Add client helper for `pane split` and `tab create` returning target pane ID.
-  - Implement command launcher invoking `pi --fork <sessionFile> [instruction]`.
-- [ ] **Phase 3: Slash Command Handler Wiring**
-  - Wire `pi.registerCommand("herdr-fork", ...)` in `src/index.ts`.
-  - Handle session file resolution, validation, notifications, and focus handover.
-- [ ] **Phase 4: Live Verification & Acceptance**
-  - Verify vertical split (`right`), horizontal split (`down`), and new tab (`tab`).
-  - Verify context continuity and prompt forwarding.
+- [x] **Phase 1: Command Parser & Unit Tests**
+  - Implemented `fork-parser.ts` (`parseForkArgs`)
+  - Unit tests in `tests/fork_parser.test.ts` covering default, explicit placement, positional prompt, quotes escaping, and whitespace handling
+- [x] **Phase 2: Herdr Process Runner Integration**
+  - `HerdrForkService` in `fork.ts` handles `pane split` (right/down) and `tab create` (tab) via the existing Herdr CLI transport
+  - Dedicated `scripts/pi-fork-launcher.sh` invoked via `pane run` with shell-quoted arguments
+  - Tests in `tests/fork.test.ts` verify exact command arrays, injection-safety, failure paths, and the launcher asset
+- [x] **Phase 3: Slash Command Handler Wiring**
+  - `pi.registerCommand("herdr-fork", ...)` wired in `index.ts`
+  - Session file resolution, validation, and notifications handled in the command handler
+  - Registration tests in `tests/fork_command.test.ts`
+- [x] **Phase 4: Live Verification & Acceptance**
+  - In a temporary Pi session loaded from this checkout, `/herdr-fork right <instruction>` created a focused peer pane with a distinct fork-session file; the peer displayed the forwarded instruction.
+  - `/herdr-fork down` created a distinct focused peer pane without an initial prompt.
+  - `/herdr-fork tab` created a distinct focused tab and root peer pane without an initial prompt.
+  - All temporary panes/tabs were closed and absence verified; the original pane/tab regained focus.
+  - The launcher receives the exact parent `PI_CODING_AGENT_DIR` through Herdr's `--env` placement argument; this is unit-covered and exercised by the command path. Live probe (2026-10-09, verified): `herdr pane split --env PI_CODING_AGENT_DIR='<dir>'` sets that variable in the split pane's launch environment, and a later `herdr pane run` in the same pane inherits it — direct child-process environment propagation is confirmed; the earlier "env echo incomplete" uncertainty is resolved by this probe.

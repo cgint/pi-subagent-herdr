@@ -34,9 +34,9 @@ the 0.2.0 replacement. The old acknowledgement flags are accepted but ignored. S
 
 ## What it does
 
-Registers nine `subagent_*` tools (R-1 through R-9 in `REQUIREMENTS.md`) plus a
-session footer showing the current Herdr pane id (R-10) when Pi runs inside a
-Herdr pane in TUI mode.
+Registers nine `subagent_*` tools (R-1 through R-9 in `REQUIREMENTS.md`), a
+`/herdr-fork` command, and a session footer showing the current Herdr pane id
+(R-10) when Pi runs inside a Herdr pane in TUI mode.
 
 | Tool | Purpose |
 |---|---|
@@ -90,6 +90,41 @@ model, worker profile, or tool set. Whether and how to delegate remains the
 current LLM's decision, using the existing `subagent_*` tools.
 
 Run `/reload` after installing or updating the package to pick up the commands.
+
+## `/herdr-fork` command
+
+Fork the active Pi session into a new Herdr pane or tab as a **peer interactive
+session** (not an owned subagent). The fork inherits the parent's full
+conversation history and exact profile/configuration; the parent is left
+untouched.
+
+```
+/herdr-fork [right|down|tab] [initial instruction]
+```
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `right` / `down` / `tab` | `right` | Where the fork opens: split right, split down, or new tab in the current workspace |
+| `[initial instruction]` | *(none)* | Optional starter prompt sent to the forked session immediately |
+
+Examples:
+
+```text
+/herdr-fork                     # split right, wait for input
+/herdr-fork down                # split down, wait for input
+/herdr-fork tab                 # new tab, wait for input
+/herdr-fork investigate test    # split right, send "investigate test"
+/herdr-fork tab write the test  # new tab, send "write the test"
+/herdr-fork "down in the cellar" # quote protects a keyword-like first word
+```
+
+The fork is launched via the dedicated `scripts/pi-fork-launcher.sh` (never the
+worker runtime). It propagates the parent's `PI_CODING_AGENT_DIR` verbatim so
+the forked session uses the exact same agent directory. No `.sub_agent_conf`,
+worker model selection, role preamble, or tool allowlist is applied.
+
+Requires an active Herdr session (`HERDR_PANE_ID` set). Outside Herdr, the
+command reports a warning and leaves the parent session untouched.
 
 ## Installation
 

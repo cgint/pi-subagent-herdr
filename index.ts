@@ -23,14 +23,19 @@
 // the SubagentService is created lazily on the first session tool call.
 
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import { Type } from "typebox";
 import type {
   AgentToolResult,
   ExtensionAPI,
+  ExtensionCommandContext,
   ExtensionContext,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { SubagentService as RealSubagentService, type Result } from "./core.js";
+import { parseForkArgs } from "./fork-parser.js";
+import { HerdrForkService, defaultForkLauncherPath } from "./fork.js";
+import type { Transport } from "./transport.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,6 +66,12 @@ export interface RegistrationDeps {
   env?: NodeJS.ProcessEnv;
   /** Fake SubagentService for tests; when set, the real core is not instantiated. */
   service?: SubagentServiceLike;
+  /**
+   * In-process Herdr transport for the /herdr-fork command (for tests).
+   * When set, the fork handler's HerdrForkService uses this transport
+   * instead of the real CLI; production behavior is unchanged when omitted.
+   */
+  forkTransport?: Transport;
 }
 
 /** Minimal structural interface for the service the factory needs. */
@@ -512,7 +523,11 @@ function readOwnedFromEntries(ctx: ExtensionContext, sessionId: string | undefin
 // Factory
 // ---------------------------------------------------------------------------
 
-export default function registerSubagentHerdr(pi: ExtensionAPI, deps: RegistrationDeps = {}): void {
+export default function registerSubagentHerdr(
+  pi: ExtensionAPI,
+  deps: RegistrationDeps = {},
+): void {
+  const registrationDeps = deps;
   const env = deps.env ?? process.env;
   let ownedState: OwnedState | null = null;
 
@@ -731,6 +746,81 @@ export default function registerSubagentHerdr(pi: ExtensionAPI, deps: Registrati
   for (const tool of tools) {
     pi.registerTool(tool);
   }
+
+  // -- /herdr-fork command: fork the active session into a new Herdr pane or
+  //    tab as a PEER interactive session (never an owned subagent).
+  const registerForkCommand = (): void => {
+    try {
+      pi.registerCommand("herdr-fork", {
+        description:
+          "Fork the active Pi session into a new Herdr pane or tab: /herdr-fork [right|down|tab] [initial instruction]",
+        handler: async (rawArgs: string, ctx: ExtensionCommandContext) => {
+          const notify = (message: string, type: "info" | "warning" | "error" = "info"): void => {
+            try {
+              ctx.ui.notify(message, type);
+            } catch {
+              /* notify is advisory; never break the handler */
+            }
+          };
+          // 1) Resolve and validate the active session file BEFORE any
+          //    pane/tab is created.
+          let sessionFile: string | undefined;
+          try {
+            sessionFile = ctx.sessionManager.getSessionFile();
+          } catch {
+            sessionFile = undefined;
+          }
+          if (typeof sessionFile !== "string" || sessionFile.trim() === "" || !fs.existsSync(sessionFile)) {
+            notify("herdr-fork: no active session file to fork yet; parent session is untouched.", "warning");
+            return;
+          }
+          // 2) Parse placement + instruction (pure, pre-validated above).
+          const parsed = parseForkArgs(rawArgs);
+          // One resolved env source for the whole handler: HERDR_PANE_ID and
+          // PI_CODING_AGENT_DIR both come from the same RegistrationDeps.env
+          // (falling back to process.env), so injected test env is honored
+          // end-to-end. The service reads ONLY PI_CODING_AGENT_DIR from it
+          // and propagates exactly that one entry to the fork target
+          // (profile parity).
+          const service = new HerdrForkService({
+            launcherPath: defaultForkLauncherPath(),
+            paneId: envPaneId(),
+            cwd: ctx.cwd,
+            env,
+            ...(registrationDeps.forkTransport !== undefined
+              ? { transport: registrationDeps.forkTransport }
+              : {}),
+          });
+          const result = await service.fork(
+            {
+              sessionFile,
+              placement: parsed.placement,
+              ...(parsed.instruction !== undefined ? { instruction: parsed.instruction } : {}),
+            },
+            ctx.signal,
+          );
+          if (result.ok) {
+            notify(
+              `herdr-fork: forked session in ${result.placement === "tab" ? `tab ${result.tab}` : `pane ${result.pane}`}; focus is on the fork.`,
+              "info",
+            );
+            return;
+          }
+          if (result.outcome === "outside_herdr") {
+            notify(
+              "herdr-fork: this session is not running inside a Herdr pane; fork skipped, parent session is untouched.",
+              "warning",
+            );
+            return;
+          }
+          notify(`herdr-fork failed (${result.phase}): ${result.hint ?? result.code ?? "unknown error"}`, "error");
+        },
+      });
+    } catch {
+      // Command registration is advisory; the nine tools remain registered.
+    }
+  };
+  registerForkCommand();
 
   // -- Session lifecycle: restore ownership, set the footer, report shutdown.
   pi.on("session_start", (_event, ctx) => {
