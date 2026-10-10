@@ -852,6 +852,100 @@ export default function registerSubagentHerdr(
     }
     ownedState = null;
   });
+
+  // -- agent-end-pane-reminders: bounded steer at agent_end when owned
+  //    sub-agent panes are live-open. Mirrors pi-self-reflect's mechanism.
+  //
+  //    Guard: consecutiveAutoContinues (max 3) + per-user-turn budget (1).
+  //    Reset: only on genuine user input (event.source !== "extension").
+  const MAX_AUTO_CONTINUES = 3;
+  const MAX_REMINDERS_PER_USER_TURN = 1;
+  let consecutiveAutoContinues = 0;
+  let remindersSinceUserInput = 0;
+
+  /**
+   * Build the steer message carrying raw pane status (no verdict).
+   * The driving LLM reflects on this and decides keep/close/wait with its
+   * normal authority.
+   */
+  function buildPaneSteerMessage(
+    panes: ReadonlyArray<{ pane_id: string; name?: string; agent_status?: string }>,
+  ): { customType: string; content: string; display: boolean; details: unknown } {
+    const lines: string[] = [
+      "[pi-subagent-herdr: EXTENSION-GENERATED PROCESS SUPPORT — NOT FROM USER]",
+      "Your sub-agent panes are still open at handoff. Reflect on their state:",
+      "",
+    ];
+    for (const p of panes) {
+      const name = p.name ? ` (${p.name})` : "";
+      const status = p.agent_status ?? "unknown";
+      lines.push(`  • ${p.pane_id}${name}: ${status}`);
+    }
+    lines.push("");
+    lines.push(
+      "Decide per pane: keep working, close (subagent_close), or wait (subagent_wait).",
+      "This is a process-control nudge only; it does not change the user's request.",
+    );
+    return {
+      customType: "pi-subagent-herdr-pane-reminder",
+      content: lines.join("\n"),
+      display: false,
+      details: { panes: panes.map((p) => ({ pane_id: p.pane_id, status: p.agent_status })) },
+    };
+  }
+
+  pi.on("agent_end", async (_event, ctx) => {
+    // Guard 1: per-user-turn budget.
+    if (remindersSinceUserInput >= MAX_REMINDERS_PER_USER_TURN) return;
+    // Guard 2: max auto-continues.
+    if (consecutiveAutoContinues >= MAX_AUTO_CONTINUES) {
+      consecutiveAutoContinues = 0;
+      return;
+    }
+    // No-op fast path: no owned panes → skip (zero I/O).
+    const service = ensureService(ctx);
+    const owned = service.getOwned();
+    if (owned.length === 0) return;
+    // Fetch live status (OQ4: extension embeds raw status).
+    // list() returns 2 Herdr CLI calls; filter to owned ∧ live-open.
+    let result: ServiceResultLike;
+    try {
+      result = await service.execute("list", { workspace: "current" }, undefined);
+    } catch {
+      return; // If the live query fails, don't inject a stale picture.
+    }
+    if (!result.ok || !result.items) return;
+    // Filter: owned ∧ appears-in-list (live-open). This is the R5 gate.
+    const ownedSet = new Set(owned.map((r) => r.pane_id));
+    const liveOwned = (result.items as Array<Record<string, unknown>>).filter(
+      (item) => typeof item.pane_id === "string" && ownedSet.has(item.pane_id),
+    );
+    if (liveOwned.length === 0) return; // No live-owned panes → no-op.
+    // Build the steer message with raw status (no verdict).
+    const panes = liveOwned.map((item) => ({
+      pane_id: String(item.pane_id),
+      ...(typeof item.name === "string" ? { name: item.name } : {}),
+      ...(typeof item.agent_status === "string" ? { agent_status: item.agent_status } : {}),
+    }));
+    const message = buildPaneSteerMessage(panes);
+    // Inject via steer (triggers a continuation turn).
+    try {
+      pi.sendMessage(message, { triggerTurn: true, deliverAs: "steer" });
+    } catch {
+      return; // If sendMessage fails, don't loop.
+    }
+    // Increment guards.
+    remindersSinceUserInput += 1;
+    consecutiveAutoContinues += 1;
+  });
+
+  // Reset guards only on genuine user input (not extension-originated).
+  pi.on("input", (event, _ctx) => {
+    if (event.source !== "extension") {
+      consecutiveAutoContinues = 0;
+      remindersSinceUserInput = 0;
+    }
+  });
 }
 
 export type { Result, SubagentService } from "./core.js";
