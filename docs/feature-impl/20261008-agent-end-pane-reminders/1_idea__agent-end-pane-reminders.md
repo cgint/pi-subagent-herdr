@@ -8,7 +8,7 @@ Date: 2026-10-08 · Status: idea (pre-scoping) · Owner: Firstmate (user owns re
 
 ## One-liner
 
-At the end of an agent run, remind the LLM which Herdr panes are still open (owned vs. in-flight vs. stale) so it can decide, before returning to the user, which panes to `subagent_close` and which to `subagent_wait` / `subagent_read`.
+At the end of an agent run, give the LLM a live picture of which Herdr panes are still open (owned vs. in-flight vs. stale) so that **before returning to the user** it can hand the user an accurate, current state of its sub-agent panes — and the **user** decides whether that is OK or whether the agent should catch up with any of them (close / wait / read). The agent does *not* auto-act; it reports. The user is the decision-maker.
 
 ## Problem
 
@@ -22,8 +22,7 @@ panes it spawned are still open. Two failure modes:
 2. **Premature return:** agent declares a delegated task done even though the worker pane is
    still `working` / `blocked`. It should have `subagent_wait`ed or `subagent_read` first.
 
-The user wants the LLM itself to make the keep/close/wait decision at the handoff moment,
-not an automatic closer (we do **not** want to silently auto-close).
+The user wants an accurate picture of the agent's owned Herdr panes **at the handoff moment, before the agent returns control to the user**, so the *user* can decide "that's fine" or "go catch up with these." The agent's job at handoff is to **report** the pane state, not to act on it. (The agent does not make the keep/close/wait decision; it surfaces the information that lets the user make it.)
 
 ## Key findings (verified 2026-10-08)
 
@@ -69,7 +68,8 @@ not an automatic closer (we do **not** want to silently auto-close).
 2. **Trigger scope:** *Resolved (2026-10-08, lead decision):* fire whenever **any** owned
    pane is still open — busy OR done-but-not-closed. A done/idle pane that was never closed
    is exactly the leak this feature exists to surface; an in-flight-only trigger would miss
-   the most common leak. The LLM then decides per pane (wait / read / close).
+   the most common leak. The LLM reports per-pane state to the user; the **user**
+   decides what (if anything) to catch up with.
 3. **Status source:** *Resolved (2026-10-08, lead decision):* in-memory `getOwned()` for
    the **trigger** (cheap, no I/O). Bounded live `subagent_read`/`list` per owned pane is
    an optional enrichment for the reminder text ("pane X is working" vs. "pane X is idle")
@@ -82,7 +82,8 @@ not an automatic closer (we do **not** want to silently auto-close).
   reset only on genuine user input (not on the extension's own steer). This is sufficient;
   a `pi-self-reflect`-style `consecutiveAutoContinues` counter is overkill for this use case.
 - **No-op fast path:** if `getOwned()` is empty, do nothing (zero latency, zero messages).
-- **Non-destructive:** reminder only; it never auto-closes or auto-waits. The LLM decides.
+- **Non-destructive:** reminder only; it never auto-closes or auto-waits. The **user**
+  decides; the LLM only reports the picture.
 
 ## Unverified (empirical, before any build)
 
