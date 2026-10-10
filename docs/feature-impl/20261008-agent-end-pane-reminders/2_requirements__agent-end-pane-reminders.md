@@ -3,28 +3,70 @@
 Date: 2026-05-02 · Status: requirements (post idea-correction) · Owner: Firstmate (user owns requirements)
 
 Companion to `1_idea__agent-end-pane-reminders.md`. This file states the requirement as
-clarified in the 2026-05-02 re-discussion, which corrected two mis-reads in the idea doc:
-(1) the decision-maker is the **agent**, not the user — it makes the same keep/close/wait
-judgment it would have made inline, but forced to do it *at the handoff moment* with the
-picture in front of it, instead of silently returning and leaving the decision implicit;
-(2) the trigger axis is **not** the in-memory `getOwned()` ledger alone — it is the panes
-in the current **workspace**, with `owned` used as a *filter*, not the *status source*.
+clarified in the 2026-05-02 re-discussion.
+
+## Scope — what this feature IS (settled 2026-05-02)
+
+This feature is **`pi-self-reflect`'s mechanism applied to panes — and nothing else.**
+
+- **Mechanism:** the same bounded, guarded, conditional steer at `agent_end` that
+  `pi-self-reflect` uses — `consecutiveAutoContinues` counter + per-user-turn reflection
+  budget + reset on genuine user input, injecting via
+  `pi.sendMessage(steer, {triggerTurn:true})` only when the nudge is warranted, and
+  hard-stopping at the auto-continue limit. (See `pi-self-reflect/src/index.ts`, search
+  `agent_end` + `consecutiveAutoContinues`.)
+- **Content:** the nudge brings up the **pane picture** — the state of the agent's own
+  sub-agent panes (live status) — so the agent makes the keep/close/wait decision it would
+  otherwise skip at the handoff moment.
+- **The driving LLM reflects; nothing decides for it.** The reflection — "what do I do
+  about these panes?" — is performed by the **driving LLM itself**, in the turn the steer
+  triggers. The extension's entire role is to *get the status in front of that LLM and
+  prompt it to reflect*. Concretely forbidden ("no magic, no hidden agent"):  
+  - **No second model call** that judges the panes and returns a verdict (this is where
+    `pi-self-reflect` *diverges*: it runs a reflector model; this feature must not — the
+    driving LLM *is* the reflector).  
+  - **No hidden agent / sub-agent** that reads the status and decides close/wait on the
+    driving LLM's behalf.  
+  - **No extension-side decision logic** that interprets the status ("pane X is done, so
+    close it"). The extension may *gather* status (call `subagent_list`) and *embed the
+    raw status* in the steer message — that is plumbing, not deciding. The steer message
+    carries **raw status, not a verdict**. The moment the extension computes "you should
+    close p2", it has crossed from *bring-it-up* into *decide-for-it*, which is out of
+    scope.
+- **"Nothing else"** — explicitly out of scope:
+  - No **workspace-scope redesign.** The trigger is the agent's *own* sub-agent panes, not
+    a re-derived `owned ∩ live-workspace` axis. (The `owned`-as-filter / live-as-status
+    phrasing in R5 below is an implementation detail of *how* to read the agent's own panes
+    accurately, not a scope expansion to whole-workspace reporting.)
+  - No **decision-authority reassignment.** The mechanism does not change *who* decides;
+    it surfaces the picture at the moment the agent would otherwise skip the judgment. The
+    agent then acts with its normal authority, exactly as it would anywhere else. The user
+    remains the override authority, as in any normal agentic flow.
+  - No **completion / skipped-wait gate** (the "agent narrates a wait but never calls
+    `subagent_wait`" case). Adjacent, distinct feature — not this one.
 
 ## One-line requirement
 
-At the end of an agent run, before it returns control to the user, the agent must be given
-a live picture of its sub-agent panes and be forced to make the keep/close/wait decision it
-owes itself — instead of narrating intent and returning without having decided.
+At the end of an agent run, before it returns control to the user, the agent is brought up
+with a live picture of its own sub-agent panes (via the `pi-self-reflect`-style bounded
+steer) so it makes the keep/close/wait decision it owes itself — instead of narrating
+intent and returning without having decided.
 
 ## Functional requirements
 
 - **R1 — Handoff picture.** Before the agent returns control to the user at the end of a
   run, it must have a current, live picture of its sub-agent panes and fold that decision
   into what it hands back.
-- **R2 — Live status, not a name list.** The picture must carry *live* status per pane
-  (in-flight / done-but-open / idle / gone), not merely which pane IDs are owned. A stale
-  in-memory `getOwned()` with no status is not an acceptable picture — the agent must call
-  `subagent_list` / `subagent_read` (live workspace query) to get real status.
+- **R2 — Live status, not a name list.** The picture the driving LLM reflects on must carry
+  *live* status per pane (in-flight / done-but-open / idle / gone), not merely which pane
+  IDs are owned. A stale in-memory `getOwned()` with no status is not an acceptable
+  picture. *How* the live status reaches the LLM is an open implementation choice (see
+  OQ4): (a) the steer message tells the driving LLM to call `subagent_list` itself, or
+  (b) the extension calls `subagent_list` and embeds the **raw status** in the steer
+  message. Both keep the *reflection* with the driving LLM (R3 / Scope); they differ only
+  in who does the data-gathering. (b) is preferred for fidelity — it removes the LLM's
+  ability to skip the data-gathering, which is the failure this feature exists to catch —
+  but the choice is deferred, not settled.
 - **R3 — Agent is the decision-maker.** The agent decides keep/close/wait — the same
   judgment it would make anywhere else in the session. The feature does not change *who*
   decides; it changes *when* the decision is forced to happen (at handoff, not skipped).
@@ -101,9 +143,20 @@ owes itself — instead of narrating intent and returning without having decided
   `subagent_wait` before `agent_end`. Currently out of scope for this feature; may
   deserve its own requirement if the handoff picture is meant to also catch *skipped*
   waits, not just *unclosed* panes.
+- **OQ4 — Who fetches the live status? (open, gates steer-message shape)** (a) the steer
+  message tells the *driving LLM* to call `subagent_list` itself, or (b) the *extension*
+  calls `subagent_list` in the `agent_end` handler and embeds the **raw status** in the
+  steer message. Both keep the reflection with the driving LLM (Scope / R3); they differ
+  only in who does the data-gathering. (b) is preferred (removes the LLM's ability to skip
+  the fetch — the failure this feature exists to catch) and is the faithful `pi-self-reflect`
+  mirror (self-reflect does its work in the handler and the steer carries the *result*,
+  not a bare "go reflect"). Not yet settled; decide during planning.
 
 ## Explicitly out of scope
 
 - Auto-cleanup on the user's behalf (no silent close/wait without the agent's own decision).
 - Whole-workspace visibility including manual / buddy / other-session panes.
 - The premature-return "completion gate" (see OQ3) — adjacent, not yet in scope.
+- **Any second-model verdict, hidden agent, or extension-side interpretation of the pane
+  status** (see Scope → "The driving LLM reflects; nothing decides for it"). The steer
+  carries raw status, not a verdict.

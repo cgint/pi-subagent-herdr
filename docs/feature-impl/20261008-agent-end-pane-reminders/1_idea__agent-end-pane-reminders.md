@@ -5,10 +5,21 @@ Date: 2026-10-08 · Status: idea (pre-scoping) · Owner: Firstmate (user owns re
 > Re-validated against current SDK source on 2026-05-02 — see
 > `4_revalidation_20260502__agent-end-pane-reminders.md` (corrected alternatives, cost
 > framing, new Spike B / measure-the-leak options).
+>
+> **Scope (settled 2026-05-02):** this feature is **`pi-self-reflect`'s mechanism applied
+> to panes — and nothing else.** A bounded, guarded, conditional steer at `agent_end`
+> that brings up the agent's own sub-agent panes so the agent makes the keep/close/wait
+> decision it would otherwise skip. No workspace-scope redesign, no decision-authority
+> reassignment, no completion/skipped-wait gate. See
+> `2_requirements__agent-end-pane-reminders.md` → *Scope*.
 
 ## One-liner
 
-At the end of an agent run, give the LLM a live picture of which Herdr panes are still open (owned vs. in-flight vs. stale) so that **before returning to the user** it can hand the user an accurate, current state of its sub-agent panes — and the **user** decides whether that is OK or whether the agent should catch up with any of them (close / wait / read). The agent does *not* auto-act; it reports. The user is the decision-maker.
+At the end of an agent run, bring up (via a `pi-self-reflect`-style bounded steer) a live
+picture of the agent's own sub-agent panes — so that **before returning to the user** the
+agent makes the keep/close/wait decision it owes itself instead of skipping it. The agent
+is not auto-acting on the user's behalf; it gets the picture and then acts with its normal
+authority. The user remains the override authority, as in any normal agentic flow.
 
 ## Problem
 
@@ -22,7 +33,11 @@ panes it spawned are still open. Two failure modes:
 2. **Premature return:** agent declares a delegated task done even though the worker pane is
    still `working` / `blocked`. It should have `subagent_wait`ed or `subagent_read` first.
 
-The user wants an accurate picture of the agent's owned Herdr panes **at the handoff moment, before the agent returns control to the user**, so the *user* can decide "that's fine" or "go catch up with these." The agent's job at handoff is to **report** the pane state, not to act on it. (The agent does not make the keep/close/wait decision; it surfaces the information that lets the user make it.)
+The user wants the agent, **at the handoff moment before it returns control**, to actually
+make the keep/close/wait decision on its own sub-agent panes — instead of narrating intent
+and returning without having decided. The feature is the `pi-self-reflect`-style bounded
+steer that brings the pane picture up at that moment, so the decision happens (the agent
+then acts with its normal authority; the user remains the override authority).
 
 ## Key findings (verified 2026-10-08)
 
@@ -82,8 +97,9 @@ The user wants an accurate picture of the agent's owned Herdr panes **at the han
   reset only on genuine user input (not on the extension's own steer). This is sufficient;
   a `pi-self-reflect`-style `consecutiveAutoContinues` counter is overkill for this use case.
 - **No-op fast path:** if `getOwned()` is empty, do nothing (zero latency, zero messages).
-- **Non-destructive:** reminder only; it never auto-closes or auto-waits. The **user**
-  decides; the LLM only reports the picture.
+- **Non-destructive:** reminder only; it never auto-closes or auto-waits *on the user's
+  behalf*. It brings the picture up so the agent makes the decision with its normal
+  authority; the user remains the override authority.
 
 ## Unverified (empirical, before any build)
 
