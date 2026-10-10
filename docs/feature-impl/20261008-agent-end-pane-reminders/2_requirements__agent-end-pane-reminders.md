@@ -103,11 +103,10 @@ intent and returning without having decided.
 - **R8 — Ignored-reminder is first-class, not an edge case.** If the agent gets the
   picture and *still* ends the continuation turn without making the decision (no
   close/wait/read), the user gets a skipped decision — the original bug, one turn later.
-  Mitigations on the table: (a) allow a bounded second reminder (e.g. max 2
-  auto-continues, à la `pi-self-reflect`'s `consecutiveAutoContinues`), (b) detect "panes
-  still open after the steer turn" and surface via a non-LLM channel (footer/status line),
-  (c) accept the risk and rely on `session_shutdown`'s existing warning as backstop.
-  Decision needed before implementation.
+  **Resolved (implemented):** mitigation (a) — bounded second reminder. `MAX_REMINDERS_PER_USER_TURN = 2`
+  allows one retry; `MAX_AUTO_CONTINUES = 3` bounds total auto-continues. Both caps are
+  active. Mitigation (b) (footer visibility on skip) is not implemented; (c) (session_shutdown
+  backstop) already exists.
 
 ## Mechanism (settled, re-validated 2026-05-02)
 
@@ -124,7 +123,7 @@ intent and returning without having decided.
   (working / blocked / idle / done / "unknown"), `terminal_title`, `focused`, and an **`owned`
   boolean computed in the wrapper** (`this.isOwned(pane_id) !== undefined`). Therefore:
   - **R5 trigger is directly expressible:** `items.filter(i => i.owned && i.pane_id)`;
-    status read from `i.agent_status`.
+    status read from `i.agent_status`. **Implemented:** the handler filters on `item.owned === true`.
   - **Self-pruning is free:** a pane closed externally is absent from `pane list`, so it is
     absent from the items — no stale-ledger entries reach the trigger. The "owned ∩ live"
     intersection is exactly `items` where `owned === true`.
@@ -135,26 +134,23 @@ intent and returning without having decided.
     For the trigger, "unknown" still counts as open-and-needs-a-decision (an unreadable pane
     is exactly what we must not silently return past). Hence **R6's no-op is "no items with
     `owned && pane_id` at all", not "no *working* items"**.
-  - **Residual (spike concern, not a shape question):** whether the live Herdr CLI is
-    *actually populating* `agent_status` for sub-agent panes in practice (vs. the TS wrapper
-    exposing the field). Reading `core.ts` confirms the field reaches the extension; a live
-    call confirms Herdr fills it. Deferred to the spike.
-- **OQ2 — Picture shown to user.** Confirm the agent's return message *shows* the user
-  what it decided (e.g. "waited on p2, closed p3") so the user can override. Believed yes;
-  not yet explicit in the idea doc.
+  - **Residual (spike concern): RESOLVED (live-verified 2026-05-02 on Pi 1.0.0).** A test
+    session confirmed Herdr populates `agent_status` (observed "idle" for a spawned pane).
+- **OQ2 — Picture shown to user. RESOLVED (implemented):** The steer message is
+  `display: true` — a single compact line visible in the TUI:
+  `[pane-reminder] open: w43:pD (name):idle — decide per pane: keep, close, or wait.`
+  The user sees the nudge and the agent's subsequent decision. The agent's return message
+  also narrates what it decided (e.g. "closed w43:pD").
 - **OQ3 — Adjacent: premature-return gate.** The related-but-distinct failure where the
   agent narrates a wait ("I'll now wait for the worker") but never actually calls
   `subagent_wait` before `agent_end`. Currently out of scope for this feature; may
   deserve its own requirement if the handoff picture is meant to also catch *skipped*
   waits, not just *unclosed* panes.
-- **OQ4 — Who fetches the live status? (open, gates steer-message shape)** (a) the steer
-  message tells the *driving LLM* to call `subagent_list` itself, or (b) the *extension*
-  calls `subagent_list` in the `agent_end` handler and embeds the **raw status** in the
-  steer message. Both keep the reflection with the driving LLM (Scope / R3); they differ
-  only in who does the data-gathering. (b) is preferred (removes the LLM's ability to skip
-  the fetch — the failure this feature exists to catch) and is the faithful `pi-self-reflect`
-  mirror (self-reflect does its work in the handler and the steer carries the *result*,
-  not a bare "go reflect"). Not yet settled; decide during planning.
+- **OQ4 — Who fetches the live status? RESOLVED (implemented): (b) the extension fetches.**
+  The `agent_end` handler calls `service.execute("list", {workspace:"current"})` and embeds
+  the raw status in the steer message. This removes the driving LLM's ability to skip the
+  fetch (the failure this feature exists to catch) and is the faithful `pi-self-reflect`
+  mirror (self-reflect does its work in the handler and the steer carries the *result*).
 
 ## Explicitly out of scope
 
