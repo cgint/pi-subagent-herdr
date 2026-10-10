@@ -874,25 +874,16 @@ export default function registerSubagentHerdr(
   function buildPaneSteerMessage(
     panes: ReadonlyArray<{ pane_id: string; name?: string; agent_status?: string }>,
   ): { customType: string; content: string; display: boolean; details: unknown } {
-    const lines: string[] = [
-      "[pi-subagent-herdr: EXTENSION-GENERATED PROCESS SUPPORT — NOT FROM USER]",
-      "Your sub-agent panes are still open at handoff. Reflect on their state:",
-      "",
-    ];
-    for (const p of panes) {
+    const parts = panes.map((p) => {
       const name = p.name ? ` (${p.name})` : "";
-      const status = p.agent_status ?? "unknown";
-      lines.push(`  • ${p.pane_id}${name}: ${status}`);
-    }
-    lines.push("");
-    lines.push(
-      "Decide per pane: keep working, close (subagent_close), or wait (subagent_wait).",
-      "This is a process-control nudge only; it does not change the user's request.",
-    );
+      return `${p.pane_id}${name}:${p.agent_status ?? "unknown"}`;
+    });
+    const content =
+      `[pane-reminder] open: ${parts.join(", ")} — decide per pane: keep, close, or wait. (extension nudge, not user input)`;
     return {
       customType: "pi-subagent-herdr-pane-reminder",
-      content: lines.join("\n"),
-      display: false,
+      content,
+      display: true,
       details: { panes: panes.map((p) => ({ pane_id: p.pane_id, status: p.agent_status })) },
     };
   }
