@@ -5,3 +5,5 @@ agent/
 .pi/
 # Pi session / goal state — local runtime state, never commit
 .pi/goals/
+# Ignore Code Giant output directory
+.codegiant/
