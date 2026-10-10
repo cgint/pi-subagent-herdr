@@ -89,7 +89,11 @@ intent and returning without having decided.
     Whole-workspace panes the agent did not spawn (manual panes, buddy pane, other
     sessions) are out of scope — the agent is not deciding about those.
 - **R6 — No-op fast path.** When the owned∩live intersection is empty (no owned sub-agent
-  pane actually open), do nothing — zero extra turns, zero latency, zero messages.
+  pane actually open), do nothing — zero extra turns, zero latency, zero messages. This is the
+  *derived live-open* check (R5), **not** `getOwned().length > 0` — the latter is true for
+  dead-but-owned and restored-but-dead panes and would fire the nudge on stale ownership (the
+  exact bug this feature should fix). `getOwned()` is the cheap pre-filter; the live list is
+  the actual gate.
 
 ## Safety requirements
 

@@ -12,6 +12,12 @@ Date: 2026-10-08 · Status: idea (pre-scoping) · Owner: Firstmate (user owns re
 > decision it would otherwise skip. No workspace-scope redesign, no decision-authority
 > reassignment, no completion/skipped-wait gate. See
 > `2_requirements__agent-end-pane-reminders.md` → *Scope*.
+>
+> **Research findings (2026-05-02):** `5_research_sdk`, `5_research_selfreflect`,
+> `5_research_core`, `5_research_crosscheck` — SDK mechanics, the exact self-reflect guard/
+> reset pattern, core.ts data shapes + gaps, and a cross-check of these docs. **Open
+> question OQ4** (who fetches the live status: the driving LLM vs the extension) is settled
+> neither here nor in 1_idea; it lives in `2_requirements` → *Open questions*.
 
 ## One-liner
 
@@ -65,38 +71,42 @@ then acts with its normal authority; the user remains the override authority).
 ### Data available at settle time
 
 - `service.getOwned()` → `[{ pane_id, session?, ... }]` (in-memory, per `OwnedState` in
-  `index.ts`). Cheap, no I/O.
-- `getOwned()` does **not** carry live status. To know in-flight vs. done you must call
-  `subagent_read` / `subagent_list` per pane (Herdr CLI, N calls).
+  `index.ts`). Cheap, no I/O. **Identity only — no live status, no liveness flag.** Use it as
+  a pre-filter, not the trigger.
+- `getOwned()` does **not** carry live status. The live list (`subagent_list` → `list()` in
+  `core.ts`) carries per-pane `agent_status` (raw: working/blocked/idle/done/"unknown") and an
+  `owned` boolean computed in the wrapper. See 5_research_core for the exact fields and cost
+  (2 Herdr CLI calls/workspace, or per-pane `read returnLines:0`).
 - `getOwned()` is only pruned on explicit `subagent_close` (`core.ts` — search
-  `owned.delete` for all prune sites, all `pane_not_found`-driven). A pane closed
-  **externally** (bash/herdr directly) stays
-  in the owned map → the reminder could reference a stale pane. A live `subagent_read`
-  returns `pane_not_found` for dead panes and can prune/filter them.
+  `owned.delete`). A pane closed **externally** stays in the owned map → **owned ≠ live-open**.
+  The trigger must therefore gate on the live list (owned ∧ appears-in-list), not on
+  `getOwned().length`. This is the stale-removal bug the feature fixes (2_requirements R5/R6).
 
-## Design forks (hook + trigger + status source resolved 2026-10-08; see Decisions)
+## Design forks (hook + trigger + status source — see 2_requirements; this section lags the 2026-05-02 settlement and is superseded where it conflicts)
 
 1. **Hook:** *Resolved:* **Option A** — `agent_end` + `pi.sendMessage(steer, triggerTurn)`
    (proven `pi-self-reflect` idiom; robust to the `canContinue` gate). Option B
    (`agent_before_settle` `{entries, continue}`) dropped — the `canContinue` gate is a
    maintenance burden for no real gain. Rationale: see Decisions.
-2. **Trigger scope:** *Resolved (2026-10-08, lead decision):* fire whenever **any** owned
-   pane is still open — busy OR done-but-not-closed. A done/idle pane that was never closed
-   is exactly the leak this feature exists to surface; an in-flight-only trigger would miss
-   the most common leak. The LLM reports per-pane state to the user; the **user**
-   decides what (if anything) to catch up with.
-3. **Status source:** *Resolved (2026-10-08, lead decision):* in-memory `getOwned()` for
-   the **trigger** (cheap, no I/O). Bounded live `subagent_read`/`list` per owned pane is
-   an optional enrichment for the reminder text ("pane X is working" vs. "pane X is idle")
-   and for pruning stale records — not required to decide whether to remind.
+2. **Trigger scope:** *Superseded by 2_requirements R5/R6.* Fire when any **owned sub-agent
+   pane is live-open** (derived from the live list, not from `getOwned().length`). Busy OR
+   done-but-not-closed. The driving LLM is brought up with the picture; it reflects and acts
+   with its normal authority; the user remains the override authority.
+3. **Status source:** *Superseded by 2_requirements R2/OQ4.* Live status is **required**
+   (a stale in-memory list is not an acceptable picture). Who fetches it — the driving LLM
+   calling `subagent_list` itself, or the extension embedding raw status in the steer — is
+   open (OQ4); extension-embeds is the preferred, faithful self-reflect mirror.
 
 ## Loop / safety constraints (required in any implementation)
 
-- **Loop guard (simplified):** an injected reminder re-triggers `agent_end`, so one
-  "already reminded this turn" latch is required — a flag set when the reminder fires,
-  reset only on genuine user input (not on the extension's own steer). This is sufficient;
-  a `pi-self-reflect`-style `consecutiveAutoContinues` counter is overkill for this use case.
-- **No-op fast path:** if `getOwned()` is empty, do nothing (zero latency, zero messages).
+- **Loop guard:** an injected reminder re-triggers `agent_end`, so a guard is required.
+  Mirror `pi-self-reflect`'s `consecutiveAutoContinues` counter (default max 3) + per-user-
+  turn budget (default 1) + reset **only on genuine user input** (`event.source !==
+  "extension"`); self-injected steers do NOT reset their own budget. See 2_requirements R7/R8
+  and 5_research_selfreflect for the exact guard ordering and reset rules.
+- **No-op fast path:** if **no owned sub-agent pane is live-open** (derived from the live
+  list, NOT `getOwned().length > 0`), do nothing (zero latency, zero messages). See
+  2_requirements R6.
 - **Non-destructive:** reminder only; it never auto-closes or auto-waits *on the user's
   behalf*. It brings the picture up so the agent makes the decision with its normal
   authority; the user remains the override authority.
@@ -118,14 +128,17 @@ then acts with its normal authority; the user remains the override authority).
 
 ## Candidate designs
 
-- **Design A (chosen):** `agent_end` + `sendMessage(steer, triggerTurn)`, fire on any open
-  owned pane, in-memory trigger with optional bounded live-status enrichment, one-shot
-  latch per user turn, no-op when `getOwned()` is empty.
+- **Design A (chosen):** `agent_end` + `sendMessage(steer, triggerTurn)`, fire when any
+  **owned sub-agent pane is live-open** (derived from the live list), the driving LLM
+  reflects on the raw pane picture and acts with its normal authority. Bounded by the
+  `pi-self-reflect`-style `consecutiveAutoContinues` guard; no-op when no owned pane is
+  live-open. See 2_requirements R5/R6/R7 for the current, authoritative form.
 - **Design B (dropped):** via `agent_before_settle` `{entries, continue}` — rejected, see
   decisions above.
-- **Design C (fallback):** no LLM turn at all — just a footer/status line
-  (`ctx.ui.setStatus`) listing open panes, letting the *user* (not the LLM) decide. Cheapest,
-  but does not satisfy the "let the AI decide" requirement.
+- **Design C (fallback, NON-CONFORMING to settled scope):** no LLM turn at all — just a
+  footer/status line (`ctx.ui.setStatus`) listing open panes, letting the *user* (not the
+  LLM) decide. Cheapest, but does **not** satisfy the settled requirement that the *driving
+  LLM* reflects at handoff. Out of scope unless the requirement is re-opened.
 
 ## Re-entry guide (2026-10-08)
 
@@ -157,18 +170,22 @@ If you're resuming this feature in a fresh session, here is the exact state:
    gets a new turn. Confirm it does NOT infinite-loop (add a one-shot guard). This is the
    single most important thing to verify before any real implementation.
 
-2. **Design decision (needs user input):** Which of the three forks to take:
-   - Hook: `agent_end`+sendMessage (A) vs `agent_before_settle`+continue (B)
-   - Trigger: only in-flight panes vs any owned pane
-   - Status: live read (accurate, costs N CLI calls) vs in-memory (fast, may be stale)
+2. ~~Design decision (needs user input)~~ — **SUPERSEDED.** The three forks (hook, trigger,
+   status) are settled in 2_requirements: Design A; live-open trigger (R5/R6); live status
+   required (R2), fetch-side open as OQ4. See 2_requirements + 5_research_* for the current
+   state; do not re-litigate these from this section.
 
-3. **Implementation:** Modify `index.ts` to add the hook. The handler will:
+3. **Implementation:** Modify `index.ts` to add the `agent_end` handler. The handler will:
    - Call `ensureService(ctx)` to get the service
-   - Call `service.getOwned()` — if empty, return (no-op)
-   - Optionally: for each owned pane, call the service's read/list to get live status
-   - Build a compact reminder message (pane ID, name, status, recommendation)
-   - Inject via the chosen mechanism (sendMessage or BoundaryResult)
-   - Set/clear the per-turn latch
+   - `getOwned()` as a cheap pre-filter; if empty, return (no-op)
+   - Otherwise fetch live status (OQ4: extension-embeds via `execute("list")`/`read`, or
+     instruct the driving LLM to call `subagent_list`) and keep **only owned + live-open**
+     panes (this is the R5 gate — NOT `getOwned().length > 0`)
+   - Build the steer message carrying **raw pane status** (no verdict), in the self-reflect
+     steering envelope (`role:custom, display:false`, "EXTENSION-GENERATED…NOT FROM USER" preamble)
+   - Inject via `pi.sendMessage(steer, {triggerTurn:true})`
+   - Apply the `consecutiveAutoContinues` + per-user-turn budget guard (R7/R8), reset only on
+     genuine user input (`event.source !== "extension"`)
 
 4. **Loop guard:** Track how many auto-continues have happened since the last user input.
    Reset on `input` event where `source !== "extension"`. Cap at 1 (or 2).
