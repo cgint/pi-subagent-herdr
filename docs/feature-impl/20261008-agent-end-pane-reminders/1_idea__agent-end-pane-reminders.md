@@ -2,6 +2,10 @@
 
 Date: 2026-10-08 · Status: idea (pre-scoping) · Owner: Firstmate (user owns requirements)
 
+> Re-validated against current SDK source on 2026-05-02 — see
+> `4_revalidation_20260502__agent-end-pane-reminders.md` (corrected alternatives, cost
+> framing, new Spike B / measure-the-leak options).
+
 ## One-liner
 
 At the end of an agent run, remind the LLM which Herdr panes are still open (owned vs. in-flight vs. stale) so it can decide, before returning to the user, which panes to `subagent_close` and which to `subagent_wait` / `subagent_read`.
@@ -9,7 +13,7 @@ At the end of an agent run, remind the LLM which Herdr panes are still open (own
 ## Problem
 
 The subagent-herdr extension spawns worker panes (`subagent_start`) and tracks them in
-`OwnedState` / `SubagentService.getOwned()` (`core.ts` line ~446). But nothing tells the
+`OwnedState` / `SubagentService.getOwned()` (`core.ts`). But nothing tells the
 *driving* agent, at the moment it is about to hand control back to the user, which of the
 panes it spawned are still open. Two failure modes:
 
@@ -27,7 +31,8 @@ not an automatic closer (we do **not** want to silently auto-close).
 
 - `agent_end` handler return type is `void` — it can only do side effects. It **cannot**
   directly append to LLM context or force a turn by itself.
-- The working injection path (proven by sibling `pi-self-reflect`, `src/index.ts:276`) is:
+- The working injection path (proven by sibling `pi-self-reflect`, search `agent_end` +
+  `sendMessage` in `src/index.ts`) is:
   in the `agent_end` handler, call
   `pi.sendMessage(message, { triggerTurn: true, deliverAs: "steer" })`.
   This queues a steering message and forces one more LLM turn, in which the agent sees the
@@ -35,7 +40,8 @@ not an automatic closer (we do **not** want to silently auto-close).
 - `agent_before_settle` is the other candidate: it returns `BoundaryResult =
   { entries?: SessionBoundaryDraft[]; continue?: boolean }` and can atomically append a
   `custom_message` entry and request a continuation. **But** the `canContinue` gate
-  (`agent-session.js:600-620`) requires that the last LLM message is *not* a bare
+  the `canContinue` gate (`agent-session.js`, search `canContinue`) requires that the last
+  LLM message is *not* a bare
   `assistant` message, **or** that a queued/pending custom message exists. Appending an
   `entries` draft with `display:false` counts as `pendingCustomContext` and flips
   `canContinue` true, so it is viable — but if you return `continue:true` *without* an
@@ -48,8 +54,9 @@ not an automatic closer (we do **not** want to silently auto-close).
   `index.ts`). Cheap, no I/O.
 - `getOwned()` does **not** carry live status. To know in-flight vs. done you must call
   `subagent_read` / `subagent_list` per pane (Herdr CLI, N calls).
-- `getOwned()` is only pruned on explicit `subagent_close` (`core.ts` lines 899, 2726, 2737
-  — all `pane_not_found`-driven). A pane closed **externally** (bash/herdr directly) stays
+- `getOwned()` is only pruned on explicit `subagent_close` (`core.ts` — search
+  `owned.delete` for all prune sites, all `pane_not_found`-driven). A pane closed
+  **externally** (bash/herdr directly) stays
   in the owned map → the reminder could reference a stale pane. A live `subagent_read`
   returns `pane_not_found` for dead panes and can prune/filter them.
 
@@ -117,11 +124,11 @@ If you're resuming this feature in a fresh session, here is the exact state:
   `pi.sendMessage(buildSteeringMessage(...), { triggerTurn: true, deliverAs: "steer" })`.
   Has `consecutiveAutoContinues` counter, `MAX_AUTO_CONTINUES`, resets on user `input`.
   This is a proven working pattern for this exact use case on this host.
-- Confirmed `getOwned()` in `core.ts` line ~446: in-memory `Map<string, OwnedRecord>`.
+- Confirmed `getOwned()` in `core.ts`: in-memory `Map<string, OwnedRecord>`.
   Pruned only on `subagent_close` with `pane_not_found`. NOT pruned on external close.
   No status field — only `pane_id`, `workspace_id`, `session`, `launched_at`, `pending`.
 - Confirmed `subagent_read` / `subagent_list` in `core.ts` can provide live status.
-- Confirmed `session_shutdown` in `index.ts:752` already warns about remaining panes
+- Confirmed `session_shutdown` in `index.ts` already warns about remaining panes
   (visible notification only, no LLM involvement).
 - No `agent_end` or `agent_before_settle` handler exists in the current extension.
 
@@ -160,14 +167,15 @@ If you're resuming this feature in a fresh session, here is the exact state:
 ### Key file references
 
 - `index.ts` — where the new `pi.on("agent_end", ...)` handler goes
-- `core.ts` — `SubagentService.getOwned()` (line ~514), `SubagentService.list()` (line ~2595)
-- `core.ts` — `OwnedRecord` type (line ~186): `{pane_id, workspace_id, session?, launched_at?, pending?}`
-- `core.ts` — `close()` method (line ~2710): shows how pruning works
-- `pi-self-reflect/src/index.ts:276` — the proven `agent_end` + `sendMessage` pattern
+- `core.ts` — `SubagentService.getOwned()`, `SubagentService.list()`
+- `core.ts` — `OwnedRecord` type: `{pane_id, workspace_id, session?, launched_at?, pending?}`
+- `core.ts` — `close()` method: shows how pruning works
+- `pi-self-reflect/src/index.ts` — the proven `agent_end` + `sendMessage` pattern (search
+  `agent_end`)
 - `pi-self-reflect/src/steering.ts` — `buildSteeringMessage()` for message shape reference
 - `node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/types.d.ts` — all event types
-- `node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js:1417-1434` —
-  `agent_before_settle` handling (the `canContinue` gate logic)
+- `node_modules/@earendil-works/pi-coding-agent/dist/core/agent-session.js` —
+  `agent_before_settle` handling (search `canContinue` for the gate logic)
 
 ### Gotchas / traps
 
@@ -181,6 +189,15 @@ If you're resuming this feature in a fresh session, here is the exact state:
 - The `input` event fires for ALL inputs including extension-generated ones.
   The `source` field distinguishes user input from extension injections.
   Use `event.source` to avoid resetting the loop guard on extension-generated messages.
-- `session_shutdown` in `index.ts:752` already warns about remaining panes
+- **Loop-guard ignore-case (identified by external critique, 2026-10-10):** if the LLM
+  *ignores* the injected steer reminder on the continuation turn (does not close/wait on
+  open panes), `agent_end` fires again, the one-shot latch is still set, and no second
+  reminder fires. The user is left with open panes and no notification. Mitigations to
+  consider: (a) allow a bounded second reminder (e.g. max 2 auto-continues, like
+  `pi-self-reflect`'s `consecutiveAutoContinues`), (b) detect "panes still open after the
+  steer turn" and surface it via a non-LLM channel (footer/status line), or (c) accept the
+  risk and rely on `session_shutdown`'s existing warning as the backstop. Decision needed
+  before implementation.
+- `session_shutdown` in `index.ts` already warns about remaining panes
   (visible notification only, no LLM involvement). The new reminder is a *complement*,
   not a replacement.

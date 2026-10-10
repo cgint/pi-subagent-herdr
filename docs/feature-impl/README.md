@@ -28,4 +28,5 @@ Inside each feature directory, canonical lifecycle files follow a numbered phase
 1. **Ordering & Clarity:** The numbered prefix (`1_`, `2_`, `3_`) preserves intuitive chronological and structural order in directory listings.
 2. **Separation of Concerns:** Keep the convention files (`1_idea__*.md`, `2_requirements__*.md`, `3_plan__*.md`) clean, sharp, and focused on their specific lifecycle stage.
 3. **Supplemental Files:** Offload long transcripts, CLI output dumps, or detailed architectural spikes into dedicated auxiliary files in the same directory, and cross-reference them from the canonical files.
-4. **Phase-Driven:** Files are created as the feature progresses through discovery $\rightarrow$ requirements $\rightarrow$ planning $\rightarrow$ implementation.
+4. **Phase-Driven:** Files are created as the feature progresses through discovery → requirements → planning → implementation.
+5. **No Line Numbers:** Reference source code by symbol name or search hint (e.g. `search owned.delete` in `core.ts`, `search canContinue` in `agent-session.js`), not by line number. Line numbers rot on the first edit and create false precision; symbol names are stable anchors.
