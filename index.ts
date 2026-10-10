@@ -856,12 +856,15 @@ export default function registerSubagentHerdr(
   // -- agent-end-pane-reminders: bounded steer at agent_end when owned
   //    sub-agent panes are live-open. Mirrors pi-self-reflect's mechanism.
   //
-  //    Guard: consecutiveAutoContinues (max 3) + per-user-turn budget (1).
+  //    Guard: consecutiveAutoContinues (max 3) + per-user-turn budget (2).
+  //    The 2-cap allows one retry if the agent ignores the first reminder;
+  //    the 3-cap still bounds total auto-continues.
   //    Reset: only on genuine user input (event.source !== "extension").
   const MAX_AUTO_CONTINUES = 3;
-  const MAX_REMINDERS_PER_USER_TURN = 1;
+  const MAX_REMINDERS_PER_USER_TURN = 2;
   let consecutiveAutoContinues = 0;
   let remindersSinceUserInput = 0;
+  let isReminding = false;
 
   /**
    * Build the steer message carrying raw pane status (no verdict).
@@ -895,6 +898,8 @@ export default function registerSubagentHerdr(
   }
 
   pi.on("agent_end", async (_event, ctx) => {
+    // Re-entrancy latch: never re-enter while a reminder is in flight.
+    if (isReminding) return;
     // Guard 1: per-user-turn budget.
     if (remindersSinceUserInput >= MAX_REMINDERS_PER_USER_TURN) return;
     // Guard 2: max auto-continues.
@@ -916,9 +921,10 @@ export default function registerSubagentHerdr(
     }
     if (!result.ok || !result.items) return;
     // Filter: owned ∧ appears-in-list (live-open). This is the R5 gate.
-    const ownedSet = new Set(owned.map((r) => r.pane_id));
+    // Use the item's own owned field (item.owned === true) instead of the
+    // getOwned() set, so the live filter reflects the core's current view.
     const liveOwned = (result.items as Array<Record<string, unknown>>).filter(
-      (item) => typeof item.pane_id === "string" && ownedSet.has(item.pane_id),
+      (item) => item.owned === true,
     );
     if (liveOwned.length === 0) return; // No live-owned panes → no-op.
     // Build the steer message with raw status (no verdict).
@@ -928,15 +934,18 @@ export default function registerSubagentHerdr(
       ...(typeof item.agent_status === "string" ? { agent_status: item.agent_status } : {}),
     }));
     const message = buildPaneSteerMessage(panes);
+    // Increment guards BEFORE acting (closes the double-injection race window).
+    remindersSinceUserInput += 1;
+    consecutiveAutoContinues += 1;
     // Inject via steer (triggers a continuation turn).
+    isReminding = true;
     try {
       pi.sendMessage(message, { triggerTurn: true, deliverAs: "steer" });
     } catch {
       return; // If sendMessage fails, don't loop.
+    } finally {
+      isReminding = false;
     }
-    // Increment guards.
-    remindersSinceUserInput += 1;
-    consecutiveAutoContinues += 1;
   });
 
   // Reset guards only on genuine user input (not extension-originated).
