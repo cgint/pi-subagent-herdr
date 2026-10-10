@@ -852,6 +852,100 @@ export default function registerSubagentHerdr(
     }
     ownedState = null;
   });
+
+  // -- agent-end-pane-reminders: bounded steer at agent_end when owned
+  //    sub-agent panes are live-open. Mirrors pi-self-reflect's mechanism.
+  //
+  //    Guard: consecutiveAutoContinues (max 3) + per-user-turn budget (2).
+  //    The 2-cap allows one retry if the agent ignores the first reminder;
+  //    the 3-cap still bounds total auto-continues.
+  //    Reset: only on genuine user input (event.source !== "extension").
+  const MAX_AUTO_CONTINUES = 3;
+  const MAX_REMINDERS_PER_USER_TURN = 2;
+  let consecutiveAutoContinues = 0;
+  let remindersSinceUserInput = 0;
+  let isReminding = false;
+
+  /**
+   * Build the steer message carrying raw pane status (no verdict).
+   * The driving LLM reflects on this and decides keep/close/wait with its
+   * normal authority.
+   */
+  function buildPaneSteerMessage(
+    panes: ReadonlyArray<{ pane_id: string; name?: string; agent_status?: string }>,
+  ): { customType: string; content: string; display: boolean; details: unknown } {
+    const parts = panes.map((p) => {
+      const name = p.name ? ` (${p.name})` : "";
+      return `${p.pane_id}${name}:${p.agent_status ?? "unknown"}`;
+    });
+    const content =
+      `[pane-reminder] open: ${parts.join(", ")} — decide per pane: keep, close, or wait. (extension nudge, not user input)`;
+    return {
+      customType: "pi-subagent-herdr-pane-reminder",
+      content,
+      display: true,
+      details: { panes: panes.map((p) => ({ pane_id: p.pane_id, status: p.agent_status })) },
+    };
+  }
+
+  pi.on("agent_end", async (_event, ctx) => {
+    // Re-entrancy latch: never re-enter while a reminder is in flight.
+    if (isReminding) return;
+    // Guard 1: per-user-turn budget.
+    if (remindersSinceUserInput >= MAX_REMINDERS_PER_USER_TURN) return;
+    // Guard 2: max auto-continues.
+    if (consecutiveAutoContinues >= MAX_AUTO_CONTINUES) {
+      consecutiveAutoContinues = 0;
+      return;
+    }
+    // No-op fast path: no owned panes → skip (zero I/O).
+    const service = ensureService(ctx);
+    const owned = service.getOwned();
+    if (owned.length === 0) return;
+    // Fetch live status (OQ4: extension embeds raw status).
+    // list() returns 2 Herdr CLI calls; filter to owned ∧ live-open.
+    let result: ServiceResultLike;
+    try {
+      result = await service.execute("list", { workspace: "current" }, undefined);
+    } catch {
+      return; // If the live query fails, don't inject a stale picture.
+    }
+    if (!result.ok || !result.items) return;
+    // Filter: owned ∧ appears-in-list (live-open). This is the R5 gate.
+    // Use the item's own owned field (item.owned === true) instead of the
+    // getOwned() set, so the live filter reflects the core's current view.
+    const liveOwned = (result.items as Array<Record<string, unknown>>).filter(
+      (item) => item.owned === true,
+    );
+    if (liveOwned.length === 0) return; // No live-owned panes → no-op.
+    // Build the steer message with raw status (no verdict).
+    const panes = liveOwned.map((item) => ({
+      pane_id: String(item.pane_id),
+      ...(typeof item.name === "string" ? { name: item.name } : {}),
+      ...(typeof item.agent_status === "string" ? { agent_status: item.agent_status } : {}),
+    }));
+    const message = buildPaneSteerMessage(panes);
+    // Increment guards BEFORE acting (closes the double-injection race window).
+    remindersSinceUserInput += 1;
+    consecutiveAutoContinues += 1;
+    // Inject via steer (triggers a continuation turn).
+    isReminding = true;
+    try {
+      pi.sendMessage(message, { triggerTurn: true, deliverAs: "steer" });
+    } catch {
+      return; // If sendMessage fails, don't loop.
+    } finally {
+      isReminding = false;
+    }
+  });
+
+  // Reset guards only on genuine user input (not extension-originated).
+  pi.on("input", (event, _ctx) => {
+    if (event.source !== "extension") {
+      consecutiveAutoContinues = 0;
+      remindersSinceUserInput = 0;
+    }
+  });
 }
 
 export type { Result, SubagentService } from "./core.js";

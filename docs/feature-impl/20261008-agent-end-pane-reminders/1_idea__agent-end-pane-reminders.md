@@ -1,6 +1,6 @@
 # agent-end-pane-reminders — idea
 
-Date: 2026-10-08 · Status: idea (pre-scoping) · Owner: Firstmate (user owns requirements)
+Date: 2026-10-08 · Status: **implemented** (branch `feat/agent-end-pane-reminders`, live-verified 2026-05-02) · Owner: Firstmate (user owns requirements)
 
 > Re-validated against current SDK source on 2026-05-02 — see
 > `4_revalidation_20260502__agent-end-pane-reminders.md` (corrected alternatives, cost
