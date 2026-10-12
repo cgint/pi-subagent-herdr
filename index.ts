@@ -879,7 +879,7 @@ export default function registerSubagentHerdr(
       return `${p.pane_id}${name}:${p.agent_status ?? "unknown"}`;
     });
     const content =
-      `[pane-reminder] open: ${parts.join(", ")} — decide per pane: keep, close, or wait. (extension nudge, not user input)`;
+      `[pane-reminder] still open: ${parts.join(", ")} — retain or wait if needed for upcoming steps; close only when work is fully complete. (extension nudge, not user input)`;
     return {
       customType: "pi-subagent-herdr-pane-reminder",
       content,
