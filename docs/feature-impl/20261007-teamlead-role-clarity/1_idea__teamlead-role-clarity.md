@@ -69,7 +69,12 @@ The extension registers 9 tools (`subagent_*`) in `core.ts`/`index.ts`. Role pre
 
 **Hypothesis (unverified):** the hardened `ROLES.teamlead` preamble will stop the drift in spawned teamlead panes where the original drifted; prompt-adherence effect is unverified until measured (see "How to measure"). A bare root-session lead (no teamlead pane spawned) is not covered by channel (a) — a residual limitation accepted in the 2026-10-07 scope decision.
 
-## Hardened `teamlead` role preamble (APPLIED to `core.ts` ROLES.teamlead, 2026-10-07)
+## Hardened `teamlead` role preamble (APPLIED to `core.ts` ROLES.teamlead, 2026-10-07; SUPERSEDED 2026-10-12)
+
+**Superseded by `docs/feature-impl/20261012-teamlead-delegation-framing/`:** on
+2026-10-12 `ROLES.teamlead` was re-strengthened (positive default, tool-indexed breach
+rule, override loophole closed — this doc's open question #5 — and a scouting stop
+rule). The text below is the 2026-10-07 state, retained for history.
 
 The live text (verbatim, asserted by `tests/roles.test.ts`):
 
@@ -121,7 +126,7 @@ Rationale per invariant:
 2. **Hard floor vs. eligibility test** — **DECIDED (2026-10-07): hard floor, no carve-outs** (user approved "go for it").
 3. **Mechanical backstop (optional, later):** a guard that blocks the lead's own `write`/`edit` while a delegation is active (cf. `docs/feature-impl/20261007-delegation-guard/`). Stronger than prose; requires state tracking; separate feature, not v1. **Boundary:** this entry is the prose-level fix; the mechanical guard is a separate feature-impl.
 4. **Test-execution split** — **DECIDED (2026-10-07, user confirmed via "go for it" on the presented wording):** re-running acceptance checks is permitted lead work (final acceptance) at whichever level owns the check; a spawned teamlead's acceptance = inspecting its workers' evidence and the diff, never re-implementing in place of them. The old contradiction was a doc-drafting artifact, not a design gap.
-5. **Prompt-trigger collision / brief-wording override hole:** a user (or spawning lead) can word the task "You are the Teamlead **implementing** X" or write a brief that says "implement X" — and the override clause ("any phrasing") can be read as licensing self-implementation from that. Tightening candidate: restrict the override to a direct, explicit instruction in the pane's *own* conversation; wording inside a delegated task brief does not override. Not applied yet (outside role-file scope as approved).
+5. **Prompt-trigger collision / brief-wording override hole:** a user (or spawning lead) can word the task "You are the Teamlead **implementing** X" or write a brief that says "implement X" — and the override clause ("any phrasing") can be read as licensing self-implementation from that. Tightening candidate: restrict the override to a direct, explicit instruction in the pane's *own* conversation; wording inside a delegated task brief does not override. **RESOLVED 2026-10-12** in `20261012-teamlead-delegation-framing`: invariant #2 now states a brief/task description from the caller is NOT a user instruction; only an explicit user instruction in the pane's own conversation overrides.
 6. **Micro-change overhead:** under the hard floor, even a 1-line fix requires implementer + reviewer panes. Document the operational cost explicitly; consider bundling micro-fixes into larger delegations.
 7. **Skill-text precedence:** the bundled skills (`subagent-firstmate`: "do simple work yourself", `subagent-handoff` line 16: "Do obvious local work directly") still conflict with the hardened mandate. User scoped the fix to the role file only (2026-10-07), so this contradiction remains **by decision**, not by oversight. If drift recurs via skill-text rationalization, the escalation path is amending both skill files in-repo.
 8. **Measurement prompt contamination:** the before/after scenario re-uses the same ambiguous prompt ("Teamlead implementing X"). The test must target the *spawned teamlead pane* (where the preamble is active); a root-session run is a different channel and would fail by design. Design the scenario to spawn a teamlead pane with the original drifted task.

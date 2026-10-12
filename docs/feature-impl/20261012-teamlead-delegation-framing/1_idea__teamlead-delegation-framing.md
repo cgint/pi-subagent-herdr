@@ -1,6 +1,6 @@
 # teamlead-delegation-framing — idea
 
-Date: 2026-10-12 · Status: exploring (post-strict-discuss session) · Owner: Firstmate (user owns requirements)
+Date: 2026-10-12 · Status: implemented (2026-10-12) — `ROLES.teamlead` strengthened in `core.ts` + verbatim test updated; role-file scope only · Owner: Firstmate (user owns requirements)
 
 ## One-liner
 
@@ -51,22 +51,27 @@ The hardened preamble is **negative-only** on the load-bearing decision:
    "negative-only": even a perfectly negative preamble can be out-argued at the moment
    the implementation is one `edit` call away.
 
-## Candidate direction (sketch, not decided)
+## Candidate direction (DECIDED + APPLIED to `core.ts` ROLES.teamlead, 2026-10-12)
 
-- Positive default up top: "Every implementation, review, or verification task you
-  receive is handled by the pipeline below, not by your own hands. Decomposition is your
-  first act, before you read the code."
-- **Operational, tool-indexed bright-line rule** (advisor refinement, 2026-10-12):
-  semantic artifact classification ("describes vs. is the work") is itself a
-  rationalization surface — a lead can argue "a test patch describes requirements".
-  Instead: the lead's primary execution tools are `subagent_start` / `subagent_prompt`.
-  Any `write`/`edit` on application code or tests, or running implementation scripts
-  directly, is a hard role breach. No semantic classification needed at decision time.
-- **Close the override loophole**: restrict the override clause to a direct, explicit
-  instruction in the pane's *own* conversation with the user (e.g. an explicit
-  "implement directly yourself" phrasing); a spawning lead's brief wording never
-  overrides. (Same direction as 10-07 open question #5.)
-- Keep the existing invariants; they remain the backstop.
+Applied verbatim (see `ROLES.teamlead` in `core.ts`; asserted by `tests/roles.test.ts`):
+- **Positive default block** (new section "Default (this decides first…)"): "Every
+  implementation, review, or verification task you receive is handled by the pipeline
+  below — never by your own hands. Decomposition is your first act, before you read the
+  code."
+- **Tool-indexed breach rule** (invariant #1): any `write`/`edit` of application code or
+  tests by the lead, or running implementation scripts directly, is a role breach; the
+  lead's primary execution tools are `subagent_start` / `subagent_prompt`.
+- **Override loophole closed** (new invariant #2): a brief/task description from the
+  caller is NOT a user instruction; the self-implement override exists only for an
+  explicit instruction from the USER in the pane's own conversation; brief wording
+  never overrides. (Resolves 10-07 open question #5.)
+- **Scouting stop rule** (invariant #3): "Once you can state the fix or the change, STOP
+  scouting and delegate. Holding the solution in context is not a reason to implement
+  it."
+- **Closing line**: "If the whole task fits in one slice, still run implementer →
+  reviewer → your acceptance. 'I could just do it' is the drift this role exists to
+  prevent."
+- Existing invariants, permitted-work list, and pipeline retained unchanged.
 
 ## Open questions
 
@@ -110,6 +115,13 @@ exists until that step is run.
   delegation) added to measurement; directory renamed 20261113 → 20261012 (real date);
   extend-don't-supersede position. Rejected — advisor's claim that today's drift
   observation is transcript-backed (it is not; single user report only).
+- 2026-10-12 implementation: `ROLES.teamlead` replaced with the strengthened preamble
+  (positive default + tool-indexed breach + closed override + scouting stop rule);
+  verbatim test in `tests/roles.test.ts` updated in the same change. `node --test` on
+  roles: 11/11 pass; `tsc --noEmit` clean. Full suite: 310/314 — the 4 failures are
+  pre-existing on the clean tree (fork_command: "packaged pi-fork-launcher.sh was not
+  found"; verified via `git stash` baseline) and unrelated to this change. Prompt
+  adherence remains unmeasured (see Measurement).
 
 ## Reference
 
