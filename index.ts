@@ -35,6 +35,7 @@ import type {
 import { SubagentService as RealSubagentService, type Result } from "./core.js";
 import { parseForkArgs } from "./fork-parser.js";
 import { HerdrForkService, defaultForkLauncherPath } from "./fork.js";
+import { HerdrRelocService, defaultRelocLauncherPath } from "./reloc.js";
 import type { Transport } from "./transport.js";
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,12 @@ export interface RegistrationDeps {
    * instead of the real CLI; production behavior is unchanged when omitted.
    */
   forkTransport?: Transport;
+  /**
+   * In-process Herdr transport for the /herdr-reloc-tab command (for tests).
+   * When set, the reloc handler's HerdrRelocService uses this transport
+   * instead of the real CLI; production behavior is unchanged when omitted.
+   */
+  relocTransport?: Transport;
 }
 
 /** Minimal structural interface for the service the factory needs. */
@@ -821,6 +828,84 @@ export default function registerSubagentHerdr(
     }
   };
   registerForkCommand();
+
+  // -- /herdr-reloc-tab command: relocate the active session to a NEW TAB as
+  //    a PEER interactive session (resume, not fork; never an owned subagent).
+  //    Fixed 4-step choreography, no arguments, no placement, no instruction.
+  //    Note: the final step closes the CALLING pane (deliberate departure
+  //    from the core's isSelf guard; see reloc.ts).
+  const registerRelocCommand = (): void => {
+    try {
+      pi.registerCommand("herdr-reloc-tab", {
+        description:
+          "Relocate the active Pi session to a new Herdr tab (resume, not fork)",
+        handler: async (rawArgs: string, ctx: ExtensionCommandContext) => {
+          const notify = (message: string, type: "info" | "warning" | "error" = "info"): void => {
+            try {
+              ctx.ui.notify(message, type);
+            } catch {
+              /* notify is advisory; never break the handler */
+            }
+          };
+          if (rawArgs.trim() !== "") {
+            notify("herdr-reloc-tab: takes no arguments; use /herdr-reloc-tab.", "warning");
+            return;
+          }
+          // 1) Resolve and validate the active session file BEFORE any
+          //    pane/tab is created.
+          let sessionFile: string | undefined;
+          try {
+            sessionFile = ctx.sessionManager.getSessionFile();
+          } catch {
+            sessionFile = undefined;
+          }
+          if (typeof sessionFile !== "string" || sessionFile.trim() === "" || !fs.existsSync(sessionFile)) {
+            notify("herdr-reloc-tab: no active session file to relocate yet; nothing was created.", "warning");
+            return;
+          }
+          // 2) Execute the 4-step choreography. One resolved env source for
+          //    the whole handler: HERDR_PANE_ID and PI_CODING_AGENT_DIR both
+          //    come from the same RegistrationDeps.env (falling back to
+          //    process.env), so injected test env is honored end-to-end. The
+          //    service reads ONLY PI_CODING_AGENT_DIR from it and propagates
+          //    exactly that one entry to the new tab (profile parity).
+          const service = new HerdrRelocService({
+            launcherPath: defaultRelocLauncherPath(),
+            paneId: envPaneId(),
+            cwd: ctx.cwd,
+            env,
+            ...(registrationDeps.relocTransport !== undefined
+              ? { transport: registrationDeps.relocTransport }
+              : {}),
+          });
+          const result = await service.reloc({ sessionFile }, ctx.signal);
+          if (result.ok) {
+            // Phrased to remain true even if this notification itself never
+            // fires: the final `pane close` kills this process's PTY,
+            // possibly before this point is reached (see reloc.ts).
+            notify(
+              result.staleOriginalPane
+                ? `herdr-reloc-tab: session relocated to tab ${result.tab}; original pane close FAILED (stale pane remains).`
+                : `herdr-reloc-tab: session relocated to tab ${result.tab}; original pane closed.`,
+              "info",
+            );
+            return;
+          }
+          if (result.outcome === "outside_herdr") {
+            notify(
+              "herdr-reloc-tab: this session is not running inside a Herdr pane; reloc skipped, nothing was created.",
+              "warning",
+            );
+            return;
+          }
+          notify(`herdr-reloc-tab failed (${result.phase}): ${result.hint ?? result.code ?? "unknown error"}`, "error");
+        },
+      });
+    } catch {
+      // Command registration is advisory; the nine tools remain registered.
+    }
+  };
+  registerRelocCommand();
 
   // -- Session lifecycle: restore ownership, set the footer, report shutdown.
   pi.on("session_start", (_event, ctx) => {
