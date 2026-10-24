@@ -450,7 +450,7 @@ const DESC = {
   read: [
     "Read recent console content of a herdr pane (lifecycle-aware agent read by default).",
     'source: "auto" (default; typed agent_not_found or a successful lookup with no agent falls back to the raw pane console with unknown status; typed agent_not_idle reads the visible viewport only), "agent" (strict; errors without fallback), "raw" (explicit pane read).',
-    "returnLines selects recent lines (default 100, max 500; 0 disables capture); maxChars tails the text to a code-point budget (default 8000, max 50000). A console read failure never erases a preceding action's result.",
+    "returnLines selects recent lines from the pane's scrollback ring (default 100, clamped to 500; 0 disables capture). The ring holds only the last screenful of terminal output, not the full conversation. For the complete transcript, read the Pi session .jsonl at agent_session.value. maxChars tails the text to a code-point budget (default 8000, max 50000). A console read failure never erases a preceding action's result.",
   ].join(" "),
   wait: [
     "Wait for a herdr agent pane to reach a terminal state (idle, done, or blocked) without resending anything; then return status + bounded console.",

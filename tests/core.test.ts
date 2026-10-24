@@ -1224,13 +1224,13 @@ test("read: other real errors (server) stay errors in auto mode", async () => {
   assert.match(r.detail ?? "", /server_not_running/);
 });
 
-test("read: out-of-range returnLines rejected before any action", async () => {
+test("read: returnLines above maxConsoleLines clamps to default without error", async () => {
   const world = worldWithWorker();
   const svc = makeService(world);
   const r = await svc.execute("read", { pane: "wF:p9", returnLines: 9999 });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, "invalid_return_lines");
-  assert.equal(world.calls.length, 0, "no herdr call on invalid bounds");
+  assert.equal(r.ok, true, "over-500 returnLines clamps cleanly, no rejection");
+  assert.equal(r.outcome, "read");
+  assert.ok(world.calls.length > 0, "herdr call is made after the clamp, not blocked");
 });
 
 // ---------------------------------------------------------------------------

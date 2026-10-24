@@ -1422,11 +1422,11 @@ export class SubagentService {
    */
   private validateConsoleBounds(args: Record<string, unknown>): Result | null {
     const rawLines = args.returnLines;
-    if (rawLines !== undefined && (typeof rawLines !== "number" || !Number.isInteger(rawLines) || rawLines < 0 || rawLines > this.defaults.maxConsoleLines)) {
+    if (rawLines !== undefined && (typeof rawLines !== "number" || !Number.isInteger(rawLines) || rawLines < 0)) {
       return {
         ok: false, outcome: "error", phase: "validation",
         code: "invalid_return_lines",
-        hint: `returnLines must be an integer 0..${this.defaults.maxConsoleLines} (0 disables console capture)`,
+        hint: `returnLines must be a non-negative integer (0 disables console capture); values > ${this.defaults.maxConsoleLines} clamp to ${this.defaults.consoleLines}`,
       };
     }
     const rawChars = args.maxChars;
