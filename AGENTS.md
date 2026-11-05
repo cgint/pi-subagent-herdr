@@ -8,6 +8,12 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 - **Firstmate & Supervision Roles:** Horst (lead) coordinated discovery with Judith (original pane `w2V:p2`, historical only) and bounded workers. On another machine establish a fresh peer; never reuse old pane IDs without verification.
 - **Re-entry Routine:** Read `AGENTS.md`, `PROJECT_OVERVIEW.md`, `REQUIREMENTS.md`, `docs/findings.md`, and `docs/HANDOFF.md` before continuing.
 
+## Maintenance
+- Dependency upgrades, audit hygiene and verified push: follow `.pi/skills/repo-maintenance/SKILL.md` (self-sufficient routine + repo-specific facts).
+- Test/typecheck entry point: `npm run check` (= `tsc --noEmit` + node test runner on the `.test-build/` output).
+- Evidence for each refresh lands in `agent/dep-refresh-YYYYMMDD.md`; current pre-existing test failures: 5 fail + 1 cancelled out of 313 (see that file).
+- `.pi/skills/` is agent-local and gitignored; never add maintainer-facing skills to the `pi.skills` manifest or root `skills/` — that channel belongs to extension users.
+
 ## Collaboration roles
 - The lead remains the user's Firstmate and owns strategy, integration, acceptance, and the user conversation. Use the user-designated buddy as an equal-level discussion partner, not as a grunt-work delegate.
 - Delegate bounded grunt work to cheap, capable subagents when the work warrants delegation. Verify evidence independently and clean up owned panes; never rename or close the user's buddy pane.
