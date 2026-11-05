@@ -47,9 +47,6 @@ kept and why.
 - spot-check the evidence file exists and matches reality
 
 ## Repo-specific facts
-<!-- maintainer: derive from the repository itself (package.json scripts,
-     AGENTS.md, docs/, known issues, existing overrides and why). Keep
-     current; prune stale facts. -->
 - Commands (package.json `scripts`): `npm run check` = typecheck + tests.
   `typecheck` = `tsc --noEmit`; `test` = build to `.test-build/` (gitignored)
   then `node --test --test-timeout=10000 .test-build/tests/*.test.js` — node's
@@ -75,4 +72,5 @@ kept and why.
   before/after table format. AGENTS.md declares master as the working branch.
 - Hard wall for maintainers: never add maintainer-facing skills to the
   `pi.skills` manifest or root `skills/` — that channel is packaged for
-  extension users. This `.pi/skills/` directory is gitignored and agent-local.
+  extension users. This `.pi/skills/` directory is tracked in git and ships
+  with the repo.
