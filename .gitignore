@@ -7,3 +7,4 @@ agent/
 .pi/goals/
 # Ignore Code Giant output directory
 .codegiant/
+.fk-pid-1168275 .fk-sigenv-1168937 .fk-sigenv-1169397 .fk-sigenv-1170075 .fk-sigenv-1170567 .fk-sigenv-1171059 .fk-sigenv-1171582 .fk-sigenv-1172003 .fk-sigenv-1172456 .fk-sigenv-1173152
