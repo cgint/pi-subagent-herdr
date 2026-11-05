@@ -2,7 +2,8 @@ node_modules/
 .test-build/
 .scan-results/
 agent/
-.pi/
+/.pi/*
+!.pi/skills/
 # Pi session / goal state — local runtime state, never commit
 .pi/goals/
 # Ignore Code Giant output directory
