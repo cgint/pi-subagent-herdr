@@ -93,13 +93,16 @@ test("packaging: host packages are not executable dependencies", () => {
 });
 
 test("packaging: host packages are dev-pinned to exact installed host versions", () => {
+  // Exact pins follow the validated host (see AGENTS.md). The host moved to
+  // Pi 1.5.0 (2026-11-05 dependency bump); update these expectations in
+  // lockstep with the devDependencies pins in package.json.
   assert.equal(
     packageJson.devDependencies?.["@earendil-works/pi-coding-agent"],
-    "1.0.0",
+    "1.5.0",
   );
   assert.equal(
     packageJson.devDependencies?.["@earendil-works/pi-ai"],
-    "1.0.0",
+    "1.5.0",
   );
-  assert.equal(packageJson.devDependencies?.["typebox"], "1.3.27");
+  assert.equal(packageJson.devDependencies?.["typebox"], "1.4.4");
 });

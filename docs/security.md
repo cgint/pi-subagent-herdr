@@ -1,5 +1,20 @@
 # Dependency assessment
 
+## Host-SDK pin refresh (2026-11-05, supersedes the 2026-10-02 residual-risk state)
+
+The disclosed host-SDK advisories are fixed at the root. Dev pins moved
+1.0.0 → 1.5.0 (both host SDKs), typebox 1.3.27 → 1.4.4, typescript ^5.9.0 →
+^7.0.0 (7.0.2, major), @types/node ^22.0.0 → ^26.0.0. The SDK no longer pins the
+vulnerable brace-expansion: 1.5.0 depends on brace-expansion 5.0.12,
+minimatch 11.0.3 and undici 8.12.3 (patched). A fresh lockfile from the bumped
+pins reports **0 vulnerabilities** (`npm audit`, exit 0). No `npm audit fix
+--force`, no `overrides`, no ignore flags, no installed-host modifications.
+
+The historical 2026-10-02 decision below describes the then-current residual risk
+and is retained for provenance. Its "brace-expansion >= 5.0.12" follow-up check
+is now satisfied; the extension-side verification (trusted glob config) still
+applies to the live installed host. Raw evidence: `agent/dep-refresh-20261105.md`.
+
 ## Decision (Firstmate, reassessed 2026-10-02)
 
 **Accept the disclosed host-SDK dependency risk for this first version; do not suppress the audit or claim a clean dependency tree.** This is a technical risk decision, not acceptance of the extension's functionality.
