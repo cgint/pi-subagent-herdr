@@ -36,6 +36,7 @@ import { SubagentService as RealSubagentService, type Result } from "./core.js";
 import { parseForkArgs } from "./fork-parser.js";
 import { HerdrForkService, defaultForkLauncherPath } from "./fork.js";
 import { HerdrRelocService, defaultRelocLauncherPath } from "./reloc.js";
+import { HerdrCleanSessionService, defaultCleanSessionLauncherPath, defaultCleanSessionConverterPath } from "./clean-session.js";
 import type { Transport } from "./transport.js";
 
 // ---------------------------------------------------------------------------
@@ -79,6 +80,13 @@ export interface RegistrationDeps {
    * instead of the real CLI; production behavior is unchanged when omitted.
    */
   relocTransport?: Transport;
+  /**
+   * In-process Herdr transport for the /herdr-new-clean-session command
+   * (for tests). When set, the clean-session handler's HerdrCleanSessionService
+   * uses this transport instead of the real CLI; production behavior is
+   * unchanged when omitted.
+   */
+  cleanSessionTransport?: Transport;
 }
 
 /** Minimal structural interface for the service the factory needs. */
@@ -828,6 +836,86 @@ export default function registerSubagentHerdr(
     }
   };
   registerForkCommand();
+
+  // -- /herdr-new-clean-session command: export the active branch of the
+  //    calling session to a 0600 Markdown handoff file, then open a FRESH
+  //    `pi` session in a new Herdr pane/tab instructed to read the file and
+  //    continue the prior work from there. The new session is clean (no
+  //    --session, no --fork); the exported transcript is the only memory it
+  //    inherits. Conversion runs BEFORE any Herdr call.
+  const registerCleanSessionCommand = (): void => {
+    try {
+      pi.registerCommand("herdr-new-clean-session", {
+        description:
+          "Export the active session to a Markdown handoff file and open a fresh pi session in a new Herdr pane or tab: /herdr-new-clean-session [right|down|tab] [instruction]",
+        handler: async (rawArgs: string, ctx: ExtensionCommandContext) => {
+          const notify = (message: string, type: "info" | "warning" | "error" = "info"): void => {
+            try {
+              ctx.ui.notify(message, type);
+            } catch {
+              /* notify is advisory; never break the handler */
+            }
+          };
+          // 1) Resolve and validate the active session file BEFORE any
+          //    pane/tab is created.
+          let sessionFile: string | undefined;
+          try {
+            sessionFile = ctx.sessionManager.getSessionFile();
+          } catch {
+            sessionFile = undefined;
+          }
+          if (typeof sessionFile !== "string" || sessionFile.trim() === "" || !fs.existsSync(sessionFile)) {
+            notify("herdr-new-clean-session: no active session file to export yet; nothing was created.", "warning");
+            return;
+          }
+          // 2) Parse placement + instruction (pure, pre-validated above).
+          const parsed = parseForkArgs(rawArgs);
+          // One resolved env source for the whole handler: HERDR_PANE_ID and
+          // PI_CODING_AGENT_DIR both come from the same RegistrationDeps.env
+          // (falling back to process.env), so injected test env is honored
+          // end-to-end. The service reads ONLY PI_CODING_AGENT_DIR from it
+          // and propagates exactly that one entry to the clean-session target
+          // (profile parity).
+          const service = new HerdrCleanSessionService({
+            launcherPath: defaultCleanSessionLauncherPath(),
+            converterPath: defaultCleanSessionConverterPath(),
+            paneId: envPaneId(),
+            cwd: ctx.cwd,
+            env,
+            ...(registrationDeps.cleanSessionTransport !== undefined
+              ? { transport: registrationDeps.cleanSessionTransport }
+              : {}),
+          });
+          const result = await service.cleanSession(
+            {
+              sessionFile,
+              placement: parsed.placement,
+              ...(parsed.instruction !== undefined ? { instruction: parsed.instruction } : {}),
+            },
+            ctx.signal,
+          );
+          if (result.ok) {
+            notify(
+              `herdr-new-clean-session: clean session in ${result.placement === "tab" ? `tab ${result.tab}` : `pane ${result.pane}`}; focus is on the new session.`,
+              "info",
+            );
+            return;
+          }
+          if (result.outcome === "outside_herdr") {
+            notify(
+              "herdr-new-clean-session: this session is not running inside a Herdr pane; skipped, nothing was created.",
+              "warning",
+            );
+            return;
+          }
+          notify(`herdr-new-clean-session failed (${result.phase}): ${result.hint ?? result.code ?? "unknown error"}`, "error");
+        },
+      });
+    } catch {
+      // Command registration is advisory; the nine tools remain registered.
+    }
+  };
+  registerCleanSessionCommand();
 
   // -- /herdr-reloc-tab command: relocate the active session to a NEW TAB as
   //    a PEER interactive session (resume, not fork; never an owned subagent).

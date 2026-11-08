@@ -30,6 +30,7 @@
     "transport.ts",
     "fork.ts",
     "fork-parser.ts",
+    "clean-session.ts",
     "scripts",
     "skills",
     "prompts",

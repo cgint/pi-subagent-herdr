@@ -8,3 +8,6 @@ agent/
 .pi/goals/
 # Ignore Code Giant output directory
 .codegiant/
+
+# python bytecode cache from the bundled pi-session-to-md converter tests
+scripts/__pycache__/
