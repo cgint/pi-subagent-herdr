@@ -53,10 +53,16 @@ test("runtime: extracted package keeps Herdr runtime and integrates optional sys
     const partner = reporter("partner");
     r = run("editable", { PI_WORKER_PROFILE: "partner" }); assert.equal(r.status, 0, r.stderr);
     assert.ok(readFileSync(capture, "utf8").startsWith(`${partner}\n`));
+    const defaultCallsBefore = readFileSync(profileCapture, "utf8");
     r = run("editable", { PI_WORKER_PROFILE: "default" }); assert.equal(r.status, 0, r.stderr);
-    assert.ok(readFileSync(capture, "utf8").startsWith(`${direct}\n`));
+    assert.ok(readFileSync(capture, "utf8").startsWith("\n.\n"), "explicit default: no ~/.pi/profiles/default dir, so run direct Pi as if pi-profile were absent");
+    assert.ok(readFileSync(capture, "utf8").includes(`${direct}/extensions/herdr-agent-state.ts`), "explicit default fallback still loads the default-profile reporter");
+    assert.equal(readFileSync(profileCapture, "utf8"), defaultCallsBefore, "wrapper never invoked for a profile without a ~/.pi/profiles dir");
     r = run("editable", { PI_WORKER_DEFAULT_MODEL: "invalid" }); assert.equal(r.status, 2); assert.match(r.stderr, /invalid PI_WORKER_DEFAULT_MODEL/);
     rmSync(path.join(home, ".pi/profiles/minimal"), { recursive: true });
-    r = run("editable"); assert.notEqual(r.status, 0); assert.match(r.stderr, /required trusted extension not found/);
+    const callsBefore = readFileSync(profileCapture, "utf8");
+    r = run("editable"); assert.equal(r.status, 0, r.stderr);
+    assert.ok(readFileSync(capture, "utf8").startsWith("\n.\n"), "wrapper on PATH but minimal dir missing: must run direct Pi as if pi-profile were absent");
+    assert.equal(readFileSync(profileCapture, "utf8"), callsBefore, "wrapper never invoked when its profile dir is missing");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

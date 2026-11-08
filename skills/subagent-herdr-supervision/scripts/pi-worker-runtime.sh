@@ -3,8 +3,11 @@
 # Prefer the deployed minimal profile; otherwise use the direct ~/.pi/agent layout.
 readonly PI_WORKER_RUNTIME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Profile management is external: prefer the system wrapper when available.
-if command -v pi-profile >/dev/null 2>&1; then
+# Profile management is external: prefer the system wrapper when available
+# and the selected profile's dir under ~/.pi/profiles is deployed; otherwise
+# behave exactly as if the wrapper were absent (direct pi, default profile).
+if command -v pi-profile >/dev/null 2>&1 \
+   && [ -d "$HOME/.pi/profiles/${PI_WORKER_PROFILE:-minimal}/agent" ]; then
   readonly PI_WORKER_PROFILE="${PI_WORKER_PROFILE:-minimal}"
   readonly -a PI_WORKER_COMMAND=(pi-profile "$PI_WORKER_PROFILE")
 else
