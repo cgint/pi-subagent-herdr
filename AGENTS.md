@@ -11,7 +11,7 @@ Build a native Pi extension (`pi-subagent-herdr`) that provides direct tools to 
 ## Maintenance
 - Dependency upgrades, audit hygiene and verified push: follow `.pi/skills/repo-maintenance/SKILL.md` (self-sufficient routine + repo-specific facts).
 - Test/typecheck entry point: `npm run check` (= `tsc --noEmit` + node test runner on the `.test-build/` output).
-- Evidence for each refresh lands in `agent/dep-refresh-YYYYMMDD.md`; current pre-existing test failures (re-verified 2026-12-02 after the tmpdir test-scratch fix): 5 fail out of 314 — `shellQuote` zsh round-trip (1) + injected fork_command tests (4), plus their suite-aggregate line; the earlier "1 cancelled" does not reproduce.
+- Current pre-existing test failures (re-verified 2026-12-02 after the tmpdir test-scratch fix): 5 fail out of 314 — `shellQuote` zsh round-trip (1) + injected fork_command tests (4), plus their suite-aggregate line; the earlier "1 cancelled" does not reproduce.
 - `.pi/skills/` is agent-local and gitignored; never add maintainer-facing skills to the `pi.skills` manifest or root `skills/` — that channel belongs to extension users.
 
 ## Collaboration roles

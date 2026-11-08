@@ -33,7 +33,7 @@ this repository (no central skill, no external memory).
    baseline, audit exit 0, tree clean.
 
 ## Evidence contract
-Commit agent/dep-refresh-YYYYMMDD.md containing: before/after table per
+Commit docs/evidence/dep-refresh-YYYYMMDD.md containing: before/after table per
 changed package, audit before/after, test verdict incl. pre-existing
 failures with proof they pre-date the change, residual risks/overrides
 kept and why.
@@ -59,17 +59,20 @@ kept and why.
   these same three are wildcard peerDependencies because the Pi host provides
   them at runtime. No production deps, no `overrides`, no audit ignores —
   none have ever been needed.
-- Pre-existing test baseline on master (2026-11-05): 313 tests → 307 pass,
-  5 fail, 1 cancelled (fork_command suite: 4 fails; core zsh: 1 fail). Verified
+- Pre-existing test baseline on master (re-verified 2026-12-02): 314 tests →
+  309 pass, 5 fail, 0 cancelled (fork_command suite: 4 fails; core zsh
+  `spawnSync /bin/zsh ENOENT`: 1 fail; the 2026-11-05 "1 cancelled" no longer
+  reproduces). Verified
   by re-running `npm run check` on the clean tree — matches the pre-existing
-  note in AGENTS.md and `agent/dep-refresh-20261105.md`. These failures are NOT
+  note in AGENTS.md. These failures are NOT
   regressions; a maintenance run must be no worse than this baseline.
 - Vulnerable transitive packages live inside the host SDK's shrinkwrap
   (historically brace-expansion/minimatch/undici under pi-coding-agent). The
   proven root-cause fix is a host-SDK bump (1.0.0→1.5.0 took audit 4→0),
   never an override or ignore — see docs/security.md.
-- Evidence precedent: `agent/dep-refresh-20261105.md` shows the expected
-  before/after table format. AGENTS.md declares master as the working branch.
+- Evidence files live in `docs/evidence/`; the table format is defined by the
+  Evidence contract above (the original `agent/dep-refresh-20261105.md` is
+  gone — `agent/` is ephemeral scratch). AGENTS.md declares master as the working branch.
 - Hard wall for maintainers: never add maintainer-facing skills to the
   `pi.skills` manifest or root `skills/` — that channel is packaged for
   extension users. This `.pi/skills/` directory is tracked in git and ships
