@@ -8,4 +8,3 @@ agent/
 .pi/goals/
 # Ignore Code Giant output directory
 .codegiant/
-.fk-*

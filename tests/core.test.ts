@@ -2098,7 +2098,8 @@ test("transport: awaits close and captures stdout of a real command", async () =
 
 test("transport: a multi-byte UTF-8 char SPLIT across two delayed writes decodes correctly", async () => {
   const fs = await import("node:fs");
-  const file = `${process.cwd()}/.fk-split-${process.pid}.js`;
+  const dir = mkdtempSync(join(tmpdir(), "fk-split-"));
+  const file = join(dir, "split.js");
   fs.writeFileSync(
     file,
     `const b=Buffer.from([0xf0,0x9f,0xa7,0xb5]);\nprocess.stdout.write(b.subarray(0,2));\nsetTimeout(()=>process.stdout.write(b.subarray(2)),30);\n`,
@@ -2108,7 +2109,7 @@ test("transport: a multi-byte UTF-8 char SPLIT across two delayed writes decodes
     const r = await t.run([file], { timeoutMs: 5_000 });
     assert.equal(r.stdout, "\u{1F9F5}", "cross-chunk multi-byte char decoded intact");
   } finally {
-    fs.rmSync(file, { force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -2187,7 +2188,8 @@ test("transport: combined stdout+stderr overflow kills + reaps a hanging produce
 
 test("transport: a child killed by an external signal is NOT mislabelled a timeout", async () => {
   const fs = await import("node:fs");
-  const pidFile = `${process.cwd()}/.fk-pid-${process.pid}`;
+  const dir = mkdtempSync(join(tmpdir(), "fk-pid-"));
+  const pidFile = join(dir, "pid");
   const t = new HerdrTransport("node");
   const script = `const fs=require('fs');fs.writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setTimeout(()=>{},60000);`;
   const p = t.run(["-e", script], { timeoutMs: 30_000 });
@@ -2205,7 +2207,7 @@ test("transport: a child killed by an external signal is NOT mislabelled a timeo
   } catch (err) {
     outcome = (err as Error).name;
   } finally {
-    fs.rmSync(pidFile, { force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
   assert.ok(outcome !== "TimeoutError", `an externally signalled child must not be a TimeoutError (got ${outcome})`);
 });
@@ -2305,7 +2307,8 @@ test("envelope: transport preserves raw stdout/stderr exactly (no rewrite)", asy
 
 test("envelope: signal-terminated run is NOT false success (exitCode null + signal set)", async () => {
   const fs = await import("node:fs");
-  const pidFile = `${process.cwd()}/.fk-sigenv-${process.pid}`;
+  const dir = mkdtempSync(join(tmpdir(), "fk-sigenv-"));
+  const pidFile = join(dir, "pid");
   const t = new HerdrTransport("node");
   const script = `const fs=require('fs');fs.writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setTimeout(()=>{},60000);`;
   const p = t.run(["-e", script], { timeoutMs: 30_000 });
@@ -2320,7 +2323,7 @@ test("envelope: signal-terminated run is NOT false success (exitCode null + sign
   try {
     resolved = (await p) as { exitCode: number | null; signal: NodeJS.Signals | null };
   } finally {
-    fs.rmSync(pidFile, { force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
   assert.equal(resolved!.exitCode, null, "no exit code is produced when signalled");
   assert.equal(resolved!.signal, "SIGSEGV", "the terminating signal is surfaced");
